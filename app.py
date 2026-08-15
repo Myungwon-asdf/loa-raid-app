@@ -11,7 +11,7 @@ str_lit.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용 (클리어 버튼 초록색 스타일 포함)
+# 2. 커스텀 CSS 적용
 str_lit.markdown(
     """
     <style>
@@ -77,21 +77,19 @@ str_lit.markdown(
             font-size: 0.75rem;
         }
 
-        /* 기본 레이드 버튼 디자인 */
+        /* 기본 레이드 버튼 디자인 (미완료 상태) */
         div[data-testid="stButton"] > button {
             white-space: nowrap !important;
             word-break: keep-all !important;
             height: 36px !important;
-            padding-top: 0px !important;
-            padding-bottom: 0px !important;
-            padding-left: 6px !important;
-            padding-right: 6px !important;
+            padding: 0px 6px !important;
             font-size: 0.72rem !important;
             font-weight: 700 !important;
             border-radius: 6px !important;
             border: 1px solid #1e293b !important;
             background-color: #090d16 !important;
             color: #64748b !important;
+            width: 100% !important;
         }
         div[data-testid="stButton"] > button:hover {
             border-color: #334155 !important;
@@ -547,6 +545,27 @@ else:
 
               button_label = f"✓ {raid_name}" if is_completed else raid_name
 
+              # [수정됨] 완료된 버튼은 개별 스타일 블록을 버튼 생성 직전에 주입하여 색상 변경 보장
+              if is_completed:
+                str_lit.markdown(
+                    f"""
+                    <style>
+                    div[data-testid="stButton"] > button[kind="secondary"][key="raid_btn_{char_id}_{r_idx}"],
+                    div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"] {{
+                        background-color: #059669 !important;
+                        border-color: #10b981 !important;
+                        color: #ffffff !important;
+                    }}
+                    div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"]:hover {{
+                        background-color: #047857 !important;
+                        border-color: #059669 !important;
+                        color: #ffffff !important;
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
               with r_cols[r_idx]:
                 if str_lit.button(
                     button_label,
@@ -566,26 +585,6 @@ else:
                     str_lit.rerun()
                   except Exception as e:
                     str_lit.error(f"업데이트 실패: {e}")
-
-                # [수정됨] 클리어된 버튼에 초록색 배경 및 테두리 스타일 즉시 주입
-                if is_completed:
-                  str_lit.markdown(
-                      f"""
-                              <style>
-                              div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"] {{
-                                  background-color: #059669 !important;
-                                  border-color: #10b981 !important;
-                                  color: #ffffff !important;
-                              }}
-                              div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"]:hover {{
-                                  background-color: #047857 !important;
-                                  border-color: #059669 !important;
-                                  color: #ffffff !important;
-                              }}
-                              </style>
-                              """,
-                      unsafe_allow_html=True,
-                  )
 
           str_lit.markdown(
               "<div style='margin-top: 8px;'></div>",
