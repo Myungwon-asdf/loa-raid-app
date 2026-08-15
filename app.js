@@ -1,7 +1,10 @@
 const SUPABASE_URL = "https://ozlduwxchiyuqmlztokh.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96bGR1d3hjaGl5dXFtbHp0b2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDAzNDQsImV4cCI6MjEwMjM3NjM0NH0.wbtL7PwyPD8xftkjf2fXedUZen6TTpp_-dS9dv7YF1Y";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (typeof window.supabaseClientInstance === 'undefined') {
+  window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+const supabase = window.supabaseClientInstance;
 
 // 로스트아크 API 키가 필요한 요청은 반드시 서버리스 함수를 거칩니다 (키 노출 방지)
 const LOSTARK_PROXY_URL = "/api/lostark-sync";
