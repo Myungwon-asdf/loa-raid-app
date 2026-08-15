@@ -11,7 +11,7 @@ str_lit.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용 (제공해주신 HTML UI 스타일 반영)
+# 2. 커스텀 CSS 적용 (클리어 버튼 초록색 스타일 포함)
 str_lit.markdown(
     """
     <style>
@@ -77,7 +77,7 @@ str_lit.markdown(
             font-size: 0.75rem;
         }
 
-        /* 레이드 버튼 디자인 수정 (HTML UI 스타일 맞춤) */
+        /* 기본 레이드 버튼 디자인 */
         div[data-testid="stButton"] > button {
             white-space: nowrap !important;
             word-break: keep-all !important;
@@ -150,7 +150,6 @@ if "raid_masters" not in str_lit.session_state:
   str_lit.session_state.raid_masters = fetch_raid_master()
 
 
-# 로스트아크 API를 통한 단일 캐릭터 정보 최신화 함수
 def sync_single_character_from_api(character_name):
   if not LOA_API_KEY:
     return {"status": "ERROR", "message": "API 키가 설정되지 않았습니다."}
@@ -260,7 +259,7 @@ def get_character_available_raids(char_level):
   return highest_df.to_dict(orient="records")
 
 
-# 4. 상단 헤더 영역 (로고 및 통계 지표 반영)
+# 4. 상단 헤더 영역
 header_col1, header_col2, header_col3 = str_lit.columns([2.2, 2.5, 1.2])
 
 with header_col1:
@@ -287,7 +286,6 @@ with header_col1:
 
 chars = str_lit.session_state.characters
 
-# 소유주 선택 탭 설정
 preferred_owner_order = ["아리", "델리", "청이", "우니", "신효", "길치"]
 db_owners = list(set(c.get("owner", "기타") for c in chars))
 owners = [o for o in preferred_owner_order if o in db_owners]
@@ -380,7 +378,7 @@ str_lit.markdown(
     unsafe_allow_html=True,
 )
 
-# 5. 소유주 탭 및 하위 도구 영역 구현
+# 5. 소유주 탭 구현
 nav_col1, nav_col2 = str_lit.columns([3, 1])
 
 with nav_col1:
@@ -547,7 +545,6 @@ else:
               raid_name = raid_info["name"]
               is_completed = raid_name in completed_raids
 
-              # [수정됨] 이름 중복 출력 방지 (레이드 이름만 깔끔하게 표시)
               button_label = f"✓ {raid_name}" if is_completed else raid_name
 
               with r_cols[r_idx]:
@@ -570,13 +567,19 @@ else:
                   except Exception as e:
                     str_lit.error(f"업데이트 실패: {e}")
 
+                # [수정됨] 클리어된 버튼에 초록색 배경 및 테두리 스타일 즉시 주입
                 if is_completed:
                   str_lit.markdown(
                       f"""
                               <style>
-                              div[data-testid="stButton"] > button[key*="raid_btn_{char_id}_{r_idx}"] {{
+                              div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"] {{
                                   background-color: #059669 !important;
                                   border-color: #10b981 !important;
+                                  color: #ffffff !important;
+                              }}
+                              div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"]:hover {{
+                                  background-color: #047857 !important;
+                                  border-color: #059669 !important;
                                   color: #ffffff !important;
                               }}
                               </style>
