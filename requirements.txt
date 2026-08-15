@@ -1,4 +1,0 @@
-streamlit
-requests
-supabase
-streamlit-elements
