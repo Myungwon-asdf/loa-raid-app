@@ -272,7 +272,7 @@ with header_col1:
     try:
       str_lit.image(logo_path, width=45)
     except Exception:
-      str_lit.markdown("⚔️")  # 이미지를 불러오지 못할 경우 대체용
+      str_lit.markdown("⚔️")
 
   with title_col:
     str_lit.markdown(
@@ -332,7 +332,6 @@ clear_percent = (
 )
 
 with header_col2:
-  # 상단 통계 지표 박스 가로 배치
   st_c1, st_c2, st_c3 = str_lit.columns(3)
   with st_c1:
     str_lit.markdown(
@@ -390,7 +389,6 @@ with nav_col1:
     for idx, owner in enumerate(owners):
       with owner_cols[idx]:
         is_active = str_lit.session_state.selected_owner == owner
-        btn_type = "primary" if is_active else "secondary"
         if str_lit.button(
             owner, key=f"owner_tab_{owner}", use_container_width=True
         ):
@@ -399,7 +397,7 @@ with nav_col1:
 
 str_lit.markdown("<br>", unsafe_allow_html=True)
 
-# 6. 캐릭터 카드 그리드 출력 (제공해주신 UI 구조 반영)
+# 6. 캐릭터 카드 그리드 출력
 if not filtered_chars:
   str_lit.markdown(
       "<div style='text-align:center; color:#64748b; padding:40px;'>선택된"
@@ -431,7 +429,6 @@ else:
         with str_lit.container():
           str_lit.markdown(f'<div class="card">', unsafe_allow_html=True)
 
-          # 카드 상단 영역 (프로필 이미지 + 상세 정보 가로 배치)
           img_col, info_col = str_lit.columns([1, 1.8])
 
           with img_col:
@@ -448,7 +445,6 @@ else:
               )
 
           with info_col:
-            # 순번 변경 셀렉트박스
             owner_chars = [
                 c for c in chars if c.get("owner", "기타") == owner
             ]
@@ -499,7 +495,6 @@ else:
                 except Exception as e:
                   str_lit.error(f"순서 변경 실패: {e}")
 
-            # 캐릭터명, 직업, 레벨 정보
             str_lit.markdown(
                 f"""
                       <div style="font-size: 0.72rem; color: #fbbf24; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{title}</div>
@@ -511,7 +506,6 @@ else:
                 unsafe_allow_html=True,
             )
 
-          # 보석 정보 표시란 (제공된 UI의 gem-box 디자인 반영)
           str_lit.markdown(
               f"""
                   <div class="gem-box">
@@ -522,7 +516,6 @@ else:
               unsafe_allow_html=True,
           )
 
-          # 주간 레이드 클리어 현황 요약
           completed_count = len(
               [
                   r["name"]
@@ -540,7 +533,6 @@ else:
               unsafe_allow_html=True,
           )
 
-          # 레이드 버튼 목록
           if not char_available_raids:
             str_lit.markdown(
                 "<div style='font-size: 0.75rem; color: #64748b; padding: 4px"
@@ -553,15 +545,10 @@ else:
 
             for r_idx, raid_info in enumerate(char_available_raids):
               raid_name = raid_info["name"]
-              raid_group = raid_info.get(
-                  "raid_group", raid_info.get("group", "")
-              )
               is_completed = raid_name in completed_raids
 
-              if raid_group:
-                button_label = f"✓ {raid_name}({raid_group})" if is_completed else f"{raid_name}({raid_group})"
-              else:
-                button_label = f"✓ {raid_name}" if is_completed else f"{raid_name}"
+              # [수정됨] 이름 중복 출력 방지 (레이드 이름만 깔끔하게 표시)
+              button_label = f"✓ {raid_name}" if is_completed else raid_name
 
               with r_cols[r_idx]:
                 if str_lit.button(
@@ -583,7 +570,6 @@ else:
                   except Exception as e:
                     str_lit.error(f"업데이트 실패: {e}")
 
-                # 클리어 시 초록색 액센트 버튼 디자인 적용 (HTML UI 활성 상태 반영)
                 if is_completed:
                   str_lit.markdown(
                       f"""
@@ -603,7 +589,6 @@ else:
               unsafe_allow_html=True,
           )
 
-          # 하단 버튼 (API갱신, 삭제) 우측 정렬 배치
           b_col1, b_col2, b_col3 = str_lit.columns([1.5, 1, 1])
           with b_col2:
             if str_lit.button(
