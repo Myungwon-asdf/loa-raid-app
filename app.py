@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 원본 HTML/CSS 디자인 시스템 완벽 이식
+# UI 스타일 커스텀
 st.markdown("""
 <style>
     :root {
@@ -36,7 +36,7 @@ st.markdown("""
       border: 1px solid var(--border-color);
       border-radius: 10px;
       padding: 10px 20px;
-      gap: 24px;
+      gap: 32px;
       justify-content: center;
       margin-bottom: 20px;
     }
@@ -128,7 +128,6 @@ st.markdown("""
       font-size: 0.75rem;
     }
 
-    /* Streamlit 기본 버튼 및 탭 커스텀 감성 맞춤 */
     div.stButton > button {
       border-radius: 8px;
       font-weight: 700;
@@ -172,7 +171,7 @@ def fetch_loa_character(char_name):
         gems_data = gem_res.json().get("Gems", [])
         if gems_data:
             levels = [g.get("Level", 0) for g in gems_data]
-            gem_summary = f"{max(levels)}레벨~{min(levels)}레벨 ({len(gems_data)}개)"
+            gem_summary = f"{max(levels)}레벨 {len([l for l in levels if l == max(levels)])}개, {min(levels)}레벨 {len([l for l in levels if l == min(levels)])}개" if len(set(levels)) > 1 else f"{max(levels)}레벨 {len(gems_data)}개"
 
     return {
         "name": profile.get("CharacterName", char_name),
@@ -195,16 +194,36 @@ sorted_owners = [o for o in preferred_owner_order if o in existing_owners]
 for o in existing_owners:
     if o not in sorted_owners: sorted_owners.append(o)
 
-# 상단 헤더 영역
+# 상단 헤더 영역 구성
 col_logo, col_stat_box, col_actions = st.columns([1.2, 2.5, 1.3])
 
 with col_logo:
     st.markdown("### 🗡️ LOA RAID")
-    st.caption("원정대 및 레이드 관리 시스템")
+    st.caption("원정대 캐릭터 및 주간 레이드 관리 시스템")
 
-# 통계 계산
+# 통계 계산 (전체 캐릭터 수, 완료한 레이드 / 전체 가능 레이드 및 퍼센트, 평균 아이템 레벨)
 total_chars = len(characters)
 avg_lvl = (sum([float(c.get('item_level') or 0) for c in characters]) / total_chars) if total_chars > 0 else 0
+
+total_clears = 0
+total_available_slots = 0
+for c in characters:
+    c_level = float(c.get('item_level') or 0)
+    completed = c.get('completed_raids', []) or []
+    
+    # 레이드 군별 최고 난이도 계산
+    available_raids = [r for r in master_raids if c_level >= r.get('req_level', 0)]
+    highest_raids_dict = {}
+    for raid in available_raids:
+        g = raid.get('raid_group')
+        if g not in highest_raids_dict:
+            highest_raids_dict[g] = raid
+    filtered_raids = list(highest_raids_dict.values())
+    
+    total_available_slots += len(filtered_raids)
+    total_clears += len([r for r in filtered_raids if r['id'] in completed])
+
+clear_percent = (total_clears / total_available_slots * 100) if total_available_slots > 0 else 0
 
 with col_stat_box:
     st.markdown(f"""
@@ -214,6 +233,10 @@ with col_stat_box:
             <span class="stat-value" style="color: #fff;">{total_chars}명</span>
         </div>
         <div class="stat-item">
+            <span class="stat-label">주간 레이드 클리어</span>
+            <span class="stat-value" style="color: var(--accent-green);">{total_clears} / {total_available_slots} ({clear_percent:.0f}%)</span>
+        </div>
+        <div class="stat-item">
             <span class="stat-label">평균 아이템 레벨</span>
             <span class="stat-value" style="color: var(--accent-yellow);">Lv.{avg_lvl:.2f}</span>
         </div>
@@ -221,7 +244,7 @@ with col_stat_box:
     """, unsafe_allow_html=True)
 
 with col_actions:
-    c_btn1, c_btn2 = st.columns(2)
+    c_btn1, c_btn2, c_btn3 = st.columns(3)
     with c_btn1:
         if st.button("🔄 API 최신화", use_container_width=True):
             for c in characters:
@@ -243,11 +266,24 @@ with col_actions:
                 supabase.table("characters").update({"completed_raids": []}).eq("id", c['id']).execute()
             st.toast("주간 레이드 기록이 초기화되었습니다!")
             st.rerun()
+    with c_btn3:
+        if st.button("⚙️", use_container_width=True):
+            st.toast("설정 메뉴입니다.")
 
 st.markdown("---")
 
+# 서브 메뉴 바 (캐릭터 현황 / 남은 레이드 요약 / + 캐릭터 추가 버튼)
+col_menu_tabs, col_search_mode, col_add_btn = st.columns([2.5, 2.2, 1.3])
+
+with col_search_mode:
+    search_query = st.text_input("🔍 캐릭터명 / 직업 검색...", label_visibility="collapsed", placeholder="🔍 캐릭터명 / 직업 검색...")
+
+with col_add_btn:
+    if st.button("➕ 캐릭터 추가", use_container_width=True):
+        st.session_state["show_add_modal"] = not st.session_state.get("show_add_modal", False)
+
 if not sorted_owners:
-    st.info("등록된 캐릭터가 없습니다. 사이드바에서 캐릭터를 추가해주세요.")
+    st.info("등록된 캐릭터가 없습니다. 우측 상단의 '+ 캐릭터 추가' 버튼을 눌러 캐릭터를 등록해주세요.")
 else:
     # 소유주 탭 구성
     owner_tabs = st.tabs(sorted_owners)
@@ -256,8 +292,12 @@ else:
         with owner_tabs[idx]:
             owner_chars = [c for c in characters if c.get('owner') == owner]
             
+            # 검색 필터 적용
+            if search_query:
+                owner_chars = [c for c in owner_chars if search_query.lower() in c.get('name', '').lower() or search_query.lower() in c.get('class_name', '').lower()]
+
             if not owner_chars:
-                st.warning(f"'{owner}' 소유주의 캐릭터가 없습니다.")
+                st.info(f"조건에 일치하는 캐릭터가 없습니다.")
                 continue
 
             # 3열 그리드 카드 배치
@@ -267,7 +307,6 @@ else:
                     img_url = c.get('character_image', '')
                     img_html = f'<img src="{img_url}" class="char-profile-img" onerror="this.style.display=\'none\'">' if img_url else '<span style="color:#64748b; font-size:0.75rem;">No Img</span>'
                     
-                    # HTML 원본 구조와 동일한 카드 마크업 렌더링
                     st.markdown(f"""
                     <div class="character-card">
                         <div class="card-top-section">
@@ -295,36 +334,47 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 주간 레이드 체크박스 및 관리 버튼 영역
+                    # 주간 레이드 클리어 현황 영역 (이미지와 같은 형태의 클릭형 토글 버튼 구현)
                     c_level = float(c.get('item_level') or 0)
                     completed = c.get('completed_raids', []) or []
                     
-                    st.caption("주간 레이드 클리어 현황 (최고 난이도)")
-                    
-                    # --- [추가된 로직] 레이드 군별 가장 높은 난이도만 필터링 ---
+                    # 레이드 군별 최고 난이도만 필터링
                     available_raids = [r for r in master_raids if c_level >= r.get('req_level', 0)]
                     highest_raids_dict = {}
                     for raid in available_raids:
                         g = raid.get('raid_group')
-                        # req_level이 더 높거나, 레벨이 같을 경우 id 기준 등으로 정렬되도록 처리 (req_level desc 정렬 상태 유지)
                         if g not in highest_raids_dict:
                             highest_raids_dict[g] = raid
-                    
                     filtered_raids = list(highest_raids_dict.values())
-                    # --------------------------------------------------------
+                    
+                    # 클리어 개수 계산
+                    char_clears = len([r for r in filtered_raids if r['id'] in completed])
+                    
+                    header_c1, header_c2 = st.columns([1.5, 1])
+                    with header_c1:
+                        st.markdown("<span style='font-size: 0.75rem; color: #94a3b8; font-weight: 700;'>주간 레이드 클리어 현황</span>", unsafe_allow_html=True)
+                    with header_c2:
+                        st.markdown(f"<div style='text-align: right; font-size: 0.75rem; color: #10b981; font-weight: 700;'>{char_clears} / {len(filtered_raids)} 클리어</div>", unsafe_allow_html=True)
 
-                    for raid in filtered_raids:
-                        is_checked = raid['id'] in completed
-                        checked_status = st.checkbox(f"{raid['name']} (Lv.{raid['req_level']})", value=is_checked, key=f"raid_{c['id']}_{raid['id']}")
-                        if checked_status != is_checked:
-                            if checked_status: completed.append(raid['id'])
-                            else: completed = [rid for rid in completed if rid != raid['id']]
-                            supabase.table("characters").update({"completed_raids": completed}).eq("id", c['id']).execute()
-                            st.rerun()
+                    # 가로 배치 버튼형 레이드 클리어 토글
+                    if filtered_raids:
+                        raid_cols = st.columns(len(filtered_raids))
+                        for idx_r, raid in enumerate(filtered_raids):
+                            with raid_cols[idx_r]:
+                                is_done = raid['id'] in completed
+                                btn_label = f"✓ {raid['name']}" if is_done else f"{raid['name']}"
+                                # 완료 시 초록색 계열, 미완료 시 어두운 회색 계열 느낌 연출
+                                if st.button(btn_label, key=f"r_btn_{c['id']}_{raid['id']}", use_container_width=True):
+                                    if is_done:
+                                        completed = [rid for rid in completed if rid != raid['id']]
+                                    else:
+                                        completed.append(raid['id'])
+                                    supabase.table("characters").update({"completed_raids": completed}).eq("id", c['id']).execute()
+                                    st.rerun()
 
                     col_s, col_d = st.columns(2)
                     with col_s:
-                        if st.button("🔄 개별갱신", key=f"sync_{c['id']}", use_container_width=True):
+                        if st.button("🔄 API갱신", key=f"sync_{c['id']}", use_container_width=True):
                             updated = fetch_loa_character(c['name'])
                             if updated:
                                 supabase.table("characters").update({
@@ -340,52 +390,43 @@ else:
                     
                     st.markdown("<br>", unsafe_allow_html=True)
 
-# 사이드바 관리 메뉴
-with st.sidebar:
-    st.header("⚙️ 원정대 관리")
-    
-    with st.expander("➕ 캐릭터 추가 (API 자동)", expanded=True):
+# 캐릭터 추가 모달 창 구현 (버튼 클릭 시 토글)
+if st.session_state.get("show_add_modal", False):
+    with st.sidebar:
+        st.markdown("---")
+        st.header("➕ 캐릭터 추가 (API 자동)")
         new_owner = st.text_input("소유자", value=sorted_owners[0] if sorted_owners else "아리")
         new_name = st.text_input("로스트아크 캐릭터명")
         
-        if st.button("API로 캐릭터 등록", use_container_width=True):
-            if new_name:
-                with st.spinner("로아 API 조회 중..."):
-                    data = fetch_loa_character(new_name)
-                    if data:
-                        import time
-                        supabase.table("characters").insert([{
-                            "id": f"char_{int(time.time()*1000)}",
-                            "owner": new_owner,
-                            "name": data['name'],
-                            "class_name": data['class_name'],
-                            "item_level": data['item_level'],
-                            "combat_power": data['combat_power'],
-                            "title": data['title'],
-                            "gem_summary": data['gem_summary'],
-                            "character_image": data['character_image'],
-                            "completed_raids": [],
-                            "order_idx": len(characters)
-                        }]).execute()
-                        st.success(f"'{data['name']}' 등록 성공!")
-                        st.rerun()
-                    else:
-                        st.error("캐릭터 정보를 찾을 수 없습니다.")
-            else:
-                st.error("캐릭터명을 입력해주세요.")
-
-    with st.expander("🛠️ 레이드 마스터 관리"):
-        r_group = st.text_input("레이드군", value="카멘")
-        r_name = st.text_input("표시 이름", value="카멘 하드")
-        r_level = st.number_input("입장 레벨", value=1630)
-        
-        if st.button("레이드 추가", use_container_width=True):
-            import time
-            supabase.table("raid_master").insert([{
-                "id": f"raid_{int(time.time()*1000)}",
-                "raid_group": r_group,
-                "name": r_name,
-                "req_level": int(r_level)
-            }]).execute()
-            st.success("레이드 추가 완료!")
-            st.rerun()
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            if st.button("등록하기", use_container_width=True):
+                if new_name:
+                    with st.spinner("로아 API 조회 중..."):
+                        data = fetch_loa_character(new_name)
+                        if data:
+                            import time
+                            supabase.table("characters").insert([{
+                                "id": f"char_{int(time.time()*1000)}",
+                                "owner": new_owner,
+                                "name": data['name'],
+                                "class_name": data['class_name'],
+                                "item_level": data['item_level'],
+                                "combat_power": data['combat_power'],
+                                "title": data['title'],
+                                "gem_summary": data['gem_summary'],
+                                "character_image": data['character_image'],
+                                "completed_raids": [],
+                                "order_idx": len(characters)
+                            }]).execute()
+                            st.success(f"'{data['name']}' 등록 성공!")
+                            st.session_state["show_add_modal"] = False
+                            st.rerun()
+                        else:
+                            st.error("캐릭터 정보를 찾을 수 없습니다.")
+                else:
+                    st.error("캐릭터명을 입력해주세요.")
+        with col_m2:
+            if st.button("닫기", use_container_width=True):
+                st.session_state["show_add_modal"] = False
+                st.rerun()
