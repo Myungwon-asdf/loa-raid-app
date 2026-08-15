@@ -77,13 +77,13 @@ str_lit.markdown(
             font-size: 0.75rem;
         }
 
-        /* 기본 레이드 버튼 디자인 (미완료 상태) */
+        /* 기본 레이드 버튼 디자인 */
         div[data-testid="stButton"] > button {
             white-space: nowrap !important;
             word-break: keep-all !important;
             height: 36px !important;
-            padding: 0px 6px !important;
-            font-size: 0.72rem !important;
+            padding: 0px 4px !important;
+            font-size: 0.70rem !important;
             font-weight: 700 !important;
             border-radius: 6px !important;
             border: 1px solid #1e293b !important;
@@ -257,24 +257,25 @@ def get_character_available_raids(char_level):
   return highest_df.to_dict(orient="records")
 
 
-# 4. 상단 헤더 영역
+# 4. 상단 헤더 영역 (로고와 글씨 간격 밀착 조정)
 header_col1, header_col2, header_col3 = str_lit.columns([2.2, 2.5, 1.2])
 
 with header_col1:
   current_dir = os.path.dirname(os.path.abspath(__file__))
   logo_path = os.path.join(current_dir, "logo.png")
 
-  logo_col, title_col = str_lit.columns([0.25, 1])
+  # 간격 좁히기 위해 컬럼 비율 조정 (0.15, 1)
+  logo_col, title_col = str_lit.columns([0.15, 1])
   with logo_col:
     try:
-      str_lit.image(logo_path, width=45)
+      str_lit.image(logo_path, width=42)
     except Exception:
       str_lit.markdown("⚔️")
 
   with title_col:
     str_lit.markdown(
         """
-        <div style="font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; line-height: 1; margin-top: 4px;">
+        <div style="font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; line-height: 1; margin-top: 2px;">
             LOA RAID
             <div style="font-size: 0.78rem; color: #64748b; margin-top: 4px; font-weight: normal;">원정대 캐릭터 및 주간 레이드 관리 시스템</div>
         </div>
@@ -348,20 +349,23 @@ with header_col2:
     str_lit.markdown(
         f"<div class='stat-container'><div"
         f" class='stat-label'>평균 아이템 레벨</div><div class='stat-value'"
-        f" style='color:#fbbf24;'>Lv.{avg_level:.2f}</div></div>",
+        f" style='color:#fbbf24;font-size:0.95rem;'>Lv.{avg_level:.2f}</div></div>",
         unsafe_allow_html=True,
     )
 
 with header_col3:
-  btn_c1, btn_c2 = str_lit.columns(2)
+  btn_c1, btn_c2, btn_c3 = str_lit.columns(3)
   with btn_c1:
-    if str_lit.button("🔄 API 최신화", use_container_width=True):
+    if str_lit.button("➕ 추가", use_container_width=True, key="add_char_main_btn"):
+      str_lit.session_state.show_add_modal = True
+  with btn_c2:
+    if str_lit.button("🔄 최신화", use_container_width=True, key="sync_all_btn"):
       str_lit.session_state.characters = fetch_characters()
       str_lit.session_state.raid_masters = fetch_raid_master()
       str_lit.toast("데이터베이스에서 최신 데이터를 불러왔습니다!")
       str_lit.rerun()
-  with btn_c2:
-    if str_lit.button("🧹 주간 초기화", use_container_width=True):
+  with btn_c3:
+    if str_lit.button("🧹 초기화", use_container_width=True, key="reset_week_btn"):
       for c in chars:
         if c.get("owner") == str_lit.session_state.selected_owner:
           c["completed_raids"] = []
@@ -369,6 +373,58 @@ with header_col3:
               {"completed_raids": []}
           ).eq("id", c["id"]).execute()
       str_lit.toast("주간 기록이 초기화되었습니다.")
+      str_lit.rerun()
+
+# 캐릭터 추가 모달 / 폼 영역 복구
+if str_lit.session_state.get("show_add_modal", False):
+  with str_lit.form("add_character_form"):
+    str_lit.markdown("### ➕ 새 캐릭터 추가")
+    f_col1, f_col2 = str_lit.columns(2)
+    with f_col1:
+      new_owner = str_lit.selectbox("소유주", options=owners if owners else ["아리"])
+    with f_col2:
+      new_char_name = str_lit.text_input("캐릭터명 (정확한 로스트아크 닉네임 입력)")
+
+    sub_c1, sub_c2 = str_lit.columns([1, 5])
+    with sub_c1:
+      submit_add = str_lit.form_submit_button("등록하기")
+    with sub_c2:
+      cancel_add = str_lit.form_submit_button("취소")
+
+    if submit_add:
+      if not new_char_name.strip():
+        str_lit.error("캐릭터명을 입력해주세요.")
+      else:
+        with str_lit.spinner(f"'{new_char_name}' API 조회 및 등록 중..."):
+          api_res = sync_single_character_from_api(new_char_name.strip())
+          if api_res["status"] == "OK":
+            owner_chars = [c for c in chars if c.get("owner") == new_owner]
+            new_order_idx = len(chars)
+            new_record = {
+                "owner": new_owner,
+                "name": api_res["name"],
+                "class_name": api_res["class_name"],
+                "item_level": api_res["item_level"],
+                "combat_power": api_res["combat_power"],
+                "title": api_res["title"],
+                "gem_summary": api_res["gem_summary"],
+                "character_image": api_res["character_image"],
+                "completed_raids": [],
+                "order_idx": new_order_idx,
+            }
+            try:
+              supabase.table("characters").insert(new_record).execute()
+              str_lit.success(f"'{api_res['name']}' 캐릭터가 추가되었습니다!")
+              str_lit.session_state.characters = fetch_characters()
+              str_lit.session_state.show_add_modal = False
+              str_lit.rerun()
+            except Exception as e:
+              str_lit.error(f"저장 실패: {e}")
+          else:
+            str_lit.error(f"API 조회 실패: {api_res['message']}")
+
+    if cancel_add:
+      str_lit.session_state.show_add_modal = False
       str_lit.rerun()
 
 str_lit.markdown(
@@ -393,7 +449,7 @@ with nav_col1:
 
 str_lit.markdown("<br>", unsafe_allow_html=True)
 
-# 6. 캐릭터 카드 그리드 출력
+# 6. 캐릭터 카드 그리드 출력 (셀렉트박스 제거 및 좌우 이동 버튼 적용)
 if not filtered_chars:
   str_lit.markdown(
       "<div style='text-align:center; color:#64748b; padding:40px;'>선택된"
@@ -447,49 +503,55 @@ else:
             owner_char_ids = [c["id"] for c in owner_chars]
             current_owner_pos = owner_char_ids.index(char_id) + 1
 
-            sc1, sc2 = str_lit.columns([1.5, 1])
+            # 셀렉트박스 대신 좌우 이동 버튼 배치
+            sc1, sc2, sc3 = str_lit.columns([1.2, 0.9, 0.9])
             with sc1:
               str_lit.markdown(
                   f"<span style='font-size: 0.68rem; font-weight: 700;"
-                  " background-color: #1e293b; color: #94a3b8; padding: 1px"
-                  f" 5px; border-radius: 4px;'>{owner}</span>",
+                  " background-color: #1e293b; color: #94a3b8; padding: 2px"
+                  f" 6px; border-radius: 4px;'>{owner} ({current_owner_pos})</span>",
                   unsafe_allow_html=True,
               )
             with sc2:
-              new_owner_pos = str_lit.selectbox(
-                  "순번",
-                  options=list(range(1, len(owner_chars) + 1)),
-                  index=current_owner_pos - 1,
-                  key=f"pos_{char_id}",
-                  label_visibility="collapsed",
-              )
-
-              if new_owner_pos != current_owner_pos:
-                target_owner_idx = new_owner_pos - 1
-                moved_item = owner_chars.pop(current_owner_pos - 1)
-                owner_chars.insert(target_owner_idx, moved_item)
-
-                new_chars_list = []
-                owner_iter_map = {
-                    o: [c for c in chars if c.get("owner", "기타") == o]
-                    for o in owners
-                }
-                owner_iter_map[owner] = owner_chars
-
-                for o_name in owners:
-                  if o_name in owner_iter_map:
-                    new_chars_list.extend(owner_iter_map[o_name])
-
-                try:
-                  for new_idx, c in enumerate(new_chars_list):
-                    c["order_idx"] = new_idx
-                    supabase.table("characters").update(
-                        {"order_idx": new_idx}
-                    ).eq("id", c["id"]).execute()
-                  str_lit.session_state.characters = new_chars_list
-                  str_lit.rerun()
-                except Exception as e:
-                  str_lit.error(f"순서 변경 실패: {e}")
+              if str_lit.button("◀", key=f"move_left_{char_id}", use_container_width=True):
+                if current_owner_pos > 1:
+                  target_idx = current_owner_pos - 2
+                  owner_chars.pop(current_owner_pos - 1)
+                  owner_chars.insert(target_idx, moved_item := char)
+                  
+                  new_chars_list = []
+                  owner_iter_map = {o: [c for c in chars if c.get("owner", "기타") == o] for o in owners}
+                  owner_iter_map[owner] = owner_chars
+                  for o_name in owners:
+                    if o_name in owner_iter_map:
+                      new_chars_list.extend(owner_iter_map[o_name])
+                  try:
+                    for new_idx, c in enumerate(new_chars_list):
+                      supabase.table("characters").update({"order_idx": new_idx}).eq("id", c["id"]).execute()
+                    str_lit.session_state.characters = fetch_characters()
+                    str_lit.rerun()
+                  except Exception as e:
+                    str_lit.error(f"이동 실패: {e}")
+            with sc3:
+              if str_lit.button("▶", key=f"move_right_{char_id}", use_container_width=True):
+                if current_owner_pos < len(owner_chars):
+                  target_idx = current_owner_pos
+                  owner_chars.pop(current_owner_pos - 1)
+                  owner_chars.insert(target_idx, char)
+                  
+                  new_chars_list = []
+                  owner_iter_map = {o: [c for c in chars if c.get("owner", "기타") == o] for o in owners}
+                  owner_iter_map[owner] = owner_chars
+                  for o_name in owners:
+                    if o_name in owner_iter_map:
+                      new_chars_list.extend(owner_iter_map[o_name])
+                  try:
+                    for new_idx, c in enumerate(new_chars_list):
+                      supabase.table("characters").update({"order_idx": new_idx}).eq("id", c["id"]).execute()
+                    str_lit.session_state.characters = fetch_characters()
+                    str_lit.rerun()
+                  except Exception as e:
+                    str_lit.error(f"이동 실패: {e}")
 
             str_lit.markdown(
                 f"""
@@ -544,27 +606,6 @@ else:
               is_completed = raid_name in completed_raids
 
               button_label = f"✓ {raid_name}" if is_completed else raid_name
-
-              # [수정됨] 완료된 버튼은 개별 스타일 블록을 버튼 생성 직전에 주입하여 색상 변경 보장
-              if is_completed:
-                str_lit.markdown(
-                    f"""
-                    <style>
-                    div[data-testid="stButton"] > button[kind="secondary"][key="raid_btn_{char_id}_{r_idx}"],
-                    div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"] {{
-                        background-color: #059669 !important;
-                        border-color: #10b981 !important;
-                        color: #ffffff !important;
-                    }}
-                    div[data-testid="stButton"] > button[key="raid_btn_{char_id}_{r_idx}"]:hover {{
-                        background-color: #047857 !important;
-                        border-color: #059669 !important;
-                        color: #ffffff !important;
-                    }}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
 
               with r_cols[r_idx]:
                 if str_lit.button(
