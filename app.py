@@ -9,18 +9,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# UI 스타일 커스텀
+# 기존 디자인과 완벽하게 일치시키는 CSS 스타일링
 st.markdown("""
 <style>
     :root {
-      --bg-dark: #080b11;
-      --card-bg: #0f1523;
-      --inner-bg: #090d16;
-      --border-color: #1a2336;
-      --text-muted: #64748b;
+      --bg-dark: #0e1117;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --text-muted: #8b949e;
       --accent-yellow: #fbbf24;
       --accent-green: #10b981;
-      --accent-blue: #2563eb;
     }
 
     .stApp { 
@@ -32,10 +30,10 @@ st.markdown("""
     .header-stats {
       display: flex;
       align-items: center;
-      background-color: #0d121f;
+      background-color: #161b22;
       border: 1px solid var(--border-color);
       border-radius: 10px;
-      padding: 10px 20px;
+      padding: 12px 24px;
       gap: 32px;
       justify-content: center;
       margin-bottom: 20px;
@@ -46,26 +44,24 @@ st.markdown("""
       align-items: center;
     }
     .stat-label {
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
       font-weight: 600;
       margin-bottom: 2px;
     }
     .stat-value {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       font-weight: 800;
     }
 
-    /* 캐릭터 카드 디자인 */
+    /* 캐릭터 카드 디자인 (기존과 동일한 구조 및 배치) */
     .character-card {
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
       overflow: hidden;
-      margin-bottom: 16px;
-      transition: border-color 0.2s;
+      margin-bottom: 12px;
     }
-    .character-card:hover { border-color: #2e3d5a; }
 
     .card-top-section {
       display: flex;
@@ -73,12 +69,12 @@ st.markdown("""
     }
     
     .char-profile-box {
-      width: 110px;
-      min-width: 110px;
-      height: 130px;
-      background-color: var(--card-bg);
-      border-right: 1px solid var(--border-color);
-      padding: 6px;
+      width: 100px;
+      min-width: 100px;
+      height: 125px;
+      background-color: #0d1117;
+      border-right: 1px solid #30363d;
+      padding: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -89,11 +85,11 @@ st.markdown("""
       height: 100%;
       object-fit: cover;
       object-position: center top;
-      border-radius: 6px;
+      border-radius: 4px;
     }
 
     .card-info-wrapper {
-      padding: 12px 14px;
+      padding: 10px 14px;
       flex-grow: 1;
       display: flex;
       flex-direction: column;
@@ -101,36 +97,24 @@ st.markdown("""
     }
 
     .owner-badge {
-      font-size: 0.68rem;
+      font-size: 0.7rem;
       font-weight: 700;
-      background-color: #1e293b;
-      color: #94a3b8;
-      padding: 1px 5px;
+      background-color: #21262d;
+      color: #8b949e;
+      padding: 2px 6px;
       border-radius: 4px;
-      margin-right: 4px;
-    }
-
-    .card-bottom-section {
-      padding: 0 14px 14px 14px;
-      border-top: 1px solid var(--border-color);
-      background-color: #0a0e17;
+      margin-right: 6px;
     }
 
     .gem-box {
-      background-color: var(--inner-bg);
-      border: 1px solid #141c2e;
-      border-radius: 8px;
-      padding: 6px 10px;
-      margin-top: 10px;
+      background-color: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.75rem;
-    }
-
-    div.stButton > button {
-      border-radius: 8px;
-      font-weight: 700;
       font-size: 0.8rem;
     }
 </style>
@@ -177,7 +161,7 @@ def fetch_loa_character(char_name):
         "name": profile.get("CharacterName", char_name),
         "class_name": class_name,
         "item_level": item_level,
-        "combat_power": f"공격력 {atk_power}",
+        "combat_power": f"{atk_power}",
         "title": title,
         "gem_summary": gem_summary,
         "character_image": profile.get("CharacterImage", "")
@@ -300,31 +284,30 @@ else:
             for i, c in enumerate(owner_chars):
                 with cols[i % 3]:
                     img_url = c.get('character_image', '')
-                    img_html = f'<img src="{img_url}" class="char-profile-img" onerror="this.style.display=\'none\'">' if img_url else '<span style="color:#64748b; font-size:0.75rem;">No Img</span>'
+                    img_html = f'<img src="{img_url}" class="char-profile-img" onerror="this.style.display=\'none\'">' if img_url else '<span style="color:#8b949e; font-size:0.75rem;">No Img</span>'
                     
+                    # 기존 UI와 완전히 똑같은 형태의 카드 상단 HTML
                     st.markdown(f"""
                     <div class="character-card">
                         <div class="card-top-section">
                             <div class="char-profile-box">{img_html}</div>
                             <div class="card-info-wrapper">
                                 <div>
-                                    <div style="font-size:0.72rem; color:#fbbf24; font-weight:700; margin-bottom:2px;">
-                                        <span class="owner-badge">{c.get('owner')}</span>{c.get('title', '')}
+                                    <div style="font-size:0.75rem; color:#8b949e; margin-bottom:2px;">
+                                        <span class="owner-badge">{c.get('owner')}</span><span style="color:#fbbf24; font-weight:700;">{c.get('title', '')}</span>
                                     </div>
-                                    <div style="font-size:1.05rem; font-weight:800; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{c.get('name')}</div>
-                                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">{c.get('class_name', '')}</div>
+                                    <div style="font-size:1.15rem; font-weight:800; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{c.get('name')}</div>
+                                    <div style="font-size:0.8rem; color:#8b949e; margin-top:2px;">{c.get('class_name', '')}</div>
                                 </div>
                                 <div style="margin-top:6px;">
-                                    <div style="font-size:1.05rem; font-weight:800; color:#fbbf24;">Lv.{c.get('item_level', 0):,.2f}</div>
-                                    <div style="font-size:0.72rem; color:#cbd5e1;">{c.get('combat_power', '-')}</div>
+                                    <div style="font-size:0.85rem; color:#8b949e;">아이템 레벨: <span style="font-weight:800; color:#fbbf24;">{c.get('item_level', 0):,.2f}</span></div>
+                                    <div style="font-size:0.8rem; color:#8b949e;">전투력: <span style="color:#f1f5f9;">{c.get('combat_power', '-')}</span></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="card-bottom-section">
-                            <div class="gem-box">
-                                <span style="color:#a855f7; font-weight:700;">💎 보석</span>
-                                <span style="color:#cbd5e1; font-weight:600;">{c.get('gem_summary', '정보 없음')}</span>
-                            </div>
+                        <div class="gem-box">
+                            <span style="color:#d946ef; font-weight:700;">💎 보석</span>
+                            <span style="color:#f1f5f9; font-weight:600;">{c.get('gem_summary', '정보 없음')}</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -345,11 +328,11 @@ else:
                     
                     header_c1, header_c2 = st.columns([1.5, 1])
                     with header_c1:
-                        st.markdown("<span style='font-size: 0.75rem; color: #94a3b8; font-weight: 700;'>주간 레이드 클리어 현황</span>", unsafe_allow_html=True)
+                        st.markdown("<span style='font-size: 0.8rem; color: #8b949e; font-weight: 700;'>주간 레이드 클리어 현황</span>", unsafe_allow_html=True)
                     with header_c2:
-                        st.markdown(f"<div style='text-align: right; font-size: 0.75rem; color: #10b981; font-weight: 700;'>{char_clears} / {len(filtered_raids)} 클리어</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: right; font-size: 0.8rem; color: #10b981; font-weight: 700;'>{char_clears} / {len(filtered_raids)} 클리어</div>", unsafe_allow_html=True)
 
-                    # 레이드 클리어 토글 버튼 (클릭 시 DB 반영 + st.rerun()으로 즉시 UI 동기화)
+                    # 레이드 클리어 토글 버튼 (클릭 시 DB 반영 + st.rerun으로 즉시 UI 갱신)
                     if filtered_raids:
                         raid_cols = st.columns(len(filtered_raids))
                         for idx_r, raid in enumerate(filtered_raids):
