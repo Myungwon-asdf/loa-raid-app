@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용 (카드 내부 디자인 및 정렬 최적화)
+# 2. 커스텀 CSS 적용 (스크린샷 레이아웃 맞춤형 디자인)
 st.markdown(
     """
     <style>
@@ -25,6 +25,15 @@ st.markdown(
             background-color: #0f1523; border: 1px solid #1a2336;
             border-radius: 12px; padding: 16px; margin-bottom: 16px;
             display: flex; flex-direction: column; height: 100%;
+        }
+        /* 레이드 버튼 내부 텍스트 줄바꿈 및 간격 최적화 */
+        div[data-testid="stButton"] > button {
+            white-space: pre-wrap !important;
+            line-height: 1.2 !important;
+            height: auto !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            font-size: 0.8rem !important;
         }
     </style>
 """,
@@ -186,7 +195,7 @@ def get_character_available_raids(char_level):
 
   idx = df_filtered.groupby("raid_group")["req_level"].idxmax()
   highest_df = df_filtered.loc[idx].sort_values(by="req_level", ascending=True)
-  return highest_df["name"].tolist()
+  return highest_df.to_dict(orient="records")
 
 
 # 4. 상단 헤더 영역
@@ -295,6 +304,7 @@ else:
         class_name = char.get("class_name", "미지정")
         item_level = float(char.get("item_level", 0) or 0)
         combat_power = char.get("combat_power", "-")
+        title = char.get("title", "칭호 없음")
         gem_summary = char.get("gem_summary", "-")
         char_image = char.get("character_image", "")
         completed_raids = char.get("completed_raids", []) or []
@@ -304,63 +314,8 @@ else:
         with st.container():
           st.markdown(f'<div class="card">', unsafe_allow_html=True)
 
-          # [수정] 소유주 내부에서의 순번 변경 로직 (전체 리스트가 아닌 같은 소유주 캐릭터끼리만 순서 변경)
-          order_col1, order_col2 = st.columns([2.5, 1])
-          with order_col1:
-            st.markdown(
-                f"<div style='font-size: 0.85rem; color: #fbbf24; font-weight:"
-                f" 700; padding-top: 6px;'>{owner}</div>",
-                unsafe_allow_html=True,
-            )
-          with order_col2:
-            owner_chars = [
-                c for c in chars if c.get("owner", "기타") == owner
-            ]
-            owner_char_ids = [c["id"] for c in owner_chars]
-            current_owner_pos = owner_char_ids.index(char_id) + 1
-
-            new_owner_pos = st.selectbox(
-                "순번",
-                options=list(range(1, len(owner_chars) + 1)),
-                index=current_owner_pos - 1,
-                key=f"pos_{char_id}",
-                label_visibility="collapsed",
-            )
-
-            if new_owner_pos != current_owner_pos:
-              target_owner_idx = new_owner_pos - 1
-              # 전체 chars 리스트에서 해당 소유주 그룹 내 순서 재배치
-              moved_item = owner_chars.pop(current_owner_pos - 1)
-              owner_chars.insert(target_owner_idx, moved_item)
-
-              # 전체 chars 목록 반영
-              new_chars_list = []
-              owner_iter_map = {
-                  o: [c for c in chars if c.get("owner", "기타") == o]
-                  for o in owners
-                  if o != "전체"
-              }
-              owner_iter_map[owner] = owner_chars
-
-              for o_name in owners:
-                if o_name == "전체":
-                  continue
-                if o_name in owner_iter_map:
-                  new_chars_list.extend(owner_iter_map[o_name])
-
-              try:
-                for new_idx, c in enumerate(new_chars_list):
-                  c["order_idx"] = new_idx
-                  supabase.table("characters").update(
-                      {"order_idx": new_idx}
-                  ).eq("id", c["id"]).execute()
-                st.session_state.characters = new_chars_list
-                st.rerun()
-              except Exception as e:
-                st.error(f"순서 변경 실패: {e}")
-
-          # 캐릭터 프로필 정보 레이아웃 균형 맞춤
-          img_col, info_col = st.columns([1, 1.8])
+          # 카드 상단 영역 (프로필 이미지 + 상세 정보 가로 배치)
+          img_col, info_col = st.columns([1, 1.6])
 
           with img_col:
             if char_image:
@@ -368,7 +323,7 @@ else:
             else:
               st.markdown(
                   "<div"
-                  " style='background:#1a2336; height:110px; border-radius:8px;"
+                  " style='background:#1a2336; height:120px; border-radius:8px;"
                   " display:flex; align-items:center;"
                   " justify-content:center; color:#64748b; font-size:0.75rem;'>이미지"
                   " 없음</div>",
@@ -376,12 +331,67 @@ else:
               )
 
           with info_col:
+            # 소유주 및 순번 셀렉트박스
+            sc1, sc2 = st.columns([2, 1])
+            with sc1:
+              st.markdown(
+                  f"<div style='font-size: 0.75rem; color: #fbbf24; font-weight:"
+                  f" 700;'>{owner}</div>",
+                  unsafe_allow_html=True,
+              )
+            with sc2:
+              owner_chars = [
+                  c for c in chars if c.get("owner", "기타") == owner
+              ]
+              owner_char_ids = [c["id"] for c in owner_chars]
+              current_owner_pos = owner_char_ids.index(char_id) + 1
+
+              new_owner_pos = st.selectbox(
+                  "순번",
+                  options=list(range(1, len(owner_chars) + 1)),
+                  index=current_owner_pos - 1,
+                  key=f"pos_{char_id}",
+                  label_visibility="collapsed",
+              )
+
+              if new_owner_pos != current_owner_pos:
+                target_owner_idx = new_owner_pos - 1
+                moved_item = owner_chars.pop(current_owner_pos - 1)
+                owner_chars.insert(target_owner_idx, moved_item)
+
+                new_chars_list = []
+                owner_iter_map = {
+                    o: [c for c in chars if c.get("owner", "기타") == o]
+                    for o in owners
+                    if o != "전체"
+                }
+                owner_iter_map[owner] = owner_chars
+
+                for o_name in owners:
+                  if o_name == "전체":
+                    continue
+                  if o_name in owner_iter_map:
+                    new_chars_list.extend(owner_iter_map[o_name])
+
+                try:
+                  for new_idx, c in enumerate(new_chars_list):
+                    c["order_idx"] = new_idx
+                    supabase.table("characters").update(
+                        {"order_idx": new_idx}
+                    ).eq("id", c["id"]).execute()
+                  st.session_state.characters = new_chars_list
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"순서 변경 실패: {e}")
+
+            # 칭호, 캐릭터명, 직업, 레벨, 전투력 스크린샷 스타일 배치
             st.markdown(
                 f"""
-                      <div style="font-size: 1.05rem; font-weight: 800; color: #ffffff; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{name}</div>
-                      <div style="font-size: 0.8rem; color: #94a3b8;">{class_name}</div>
-                      <div style="font-size: 0.8rem; margin-top: 4px; color: #f1f5f9;">레벨: <span style="font-weight: 800; color: #fbbf24;">{item_level}</span></div>
-                      <div style="font-size: 0.75rem; color: #38bdf8;">전투력: {combat_power}</div>
+                      <div style="font-size: 0.7rem; color: #f59e0b; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{title}</div>
+                      <div style="font-size: 1.05rem; font-weight: 800; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{name}</div>
+                      <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">{class_name}</div>
+                      <div style="font-size: 0.75rem; color: #f1f5f9;">아이템 레벨: <span style="font-weight: 800; color: #fbbf24;">{item_level}</span></div>
+                      <div style="font-size: 0.75rem; color: #94a3b8;">전투력: <span style="color: #38bdf8;">{combat_power}</span></div>
                       """,
                 unsafe_allow_html=True,
             )
@@ -391,29 +401,41 @@ else:
               unsafe_allow_html=True,
           )
 
+          # 보석 정보 표시란
           st.markdown(
               f"""
-                  <div style="font-size: 0.8rem; margin-bottom: 8px;">
-                      <span style="color: #38bdf8; font-weight: 600;">💎 보석</span> <span style="color: #cbd5e1; margin-left: 4px; font-size: 0.75rem;">{gem_summary}</span>
+                  <div style="font-size: 0.75rem; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                      <span style="color: #38bdf8; font-weight: 600;">💎 보석</span> 
+                      <span style="color: #cbd5e1; font-size: 0.75rem;">{gem_summary}</span>
                   </div>
                   """,
               unsafe_allow_html=True,
           )
 
+          st.markdown(
+              "<hr style='margin: 6px 0; border-color: #1a2336;'>",
+              unsafe_allow_html=True,
+          )
+
+          # 주간 레이드 클리어 현황 요약
           completed_count = len(
-              [r for r in completed_raids if r in char_available_raids]
+              [
+                  r["name"]
+                  for r in char_available_raids
+                  if r["name"] in completed_raids
+              ]
           )
           st.markdown(
               f"<div style='display: flex; justify-content: space-between;"
               f" align-items: center; margin-bottom: 6px;'><span"
-              f" style='font-size: 0.75rem; color: #94a3b8;'>주간 레이드"
-              f" 클리어</span><span style='font-size: 0.75rem; color: #10b981;"
+              f" style='font-size: 0.75rem; color: #94a3b8;'>주간 레이드 클리어"
+              f" 현황</span><span style='font-size: 0.75rem; color: #10b981;"
               f" font-weight: 700;'>{completed_count} /"
-              f" {len(char_available_raids)}</span></div>",
+              f" {len(char_available_raids)} 클리어</span></div>",
               unsafe_allow_html=True,
           )
 
-          # [수정] 체크박스를 제거하고 누르면 글씨 색이 변경되는 레이드 완료 버튼 구현
+          # 레이드 버튼 목록 (윗줄: 레이드명, 아랫줄: 난이도)
           if not char_available_raids:
             st.markdown(
                 "<div style='font-size: 0.75rem; color: #64748b; padding: 4px"
@@ -424,15 +446,14 @@ else:
             r_cols = st.columns(len(char_available_raids))
             new_completed = list(completed_raids)
 
-            for r_idx, raid_name in enumerate(char_available_raids):
-              with r_cols[r_idx]:
-                is_completed = raid_name in completed_raids
-                # 체크박스 기호(✅/⬜) 대신 텍스트 컬러와 스타일로 시각적 구분 제공
-                if is_completed:
-                  button_label = f"✨ {raid_name}"
-                else:
-                  button_label = f"{raid_name}"
+            for r_idx, raid_info in enumerate(char_available_raids):
+              raid_name = raid_info["name"]
+              raid_group = raid_info["group"]  # 난이도/그룹
+              is_completed = raid_name in completed_raids
 
+              button_label = f"{raid_name}\n{raid_group}"
+
+              with r_cols[r_idx]:
                 if st.button(
                     button_label,
                     key=f"raid_btn_{char_id}_{r_idx}",
@@ -452,15 +473,15 @@ else:
                   except Exception as e:
                     st.error(f"업데이트 실패: {e}")
 
-                # 클리어된 버튼의 텍스트 색상을 초록색 및 취소선 등으로 강조하기 위한 커스텀 스타일 주입
+                # 클리어 시 초록색 버튼 디자인 적용
                 if is_completed:
                   st.markdown(
                       f"""
                               <style>
                               div[data-testid="stButton"] > button[key*="raid_btn_{char_id}_{r_idx}"] {{
-                                  background-color: #064e3b !important;
-                                  color: #34d399 !important;
-                                  border: 1px solid #059669 !important;
+                                  background-color: #047857 !important;
+                                  color: #ffffff !important;
+                                  border: 1px solid #10b981 !important;
                                   font-weight: 700 !important;
                               }}
                               </style>
@@ -472,8 +493,10 @@ else:
               "<div style='margin-top: 10px;'></div>",
               unsafe_allow_html=True,
           )
-          b_col1, b_col2 = st.columns([1, 1])
-          with b_col1:
+
+          # 하단 버튼 (API갱신, 삭제) 우측 정렬 배치
+          b_col1, b_col2, b_col3 = st.columns([1.5, 1, 1])
+          with b_col2:
             if st.button(
                 "🔄 API갱신", key=f"sync_btn_{char_id}", use_container_width=True
             ):
@@ -497,7 +520,7 @@ else:
                 else:
                   st.error(f"갱신 실패: {api_result['message']}")
 
-          with b_col2:
+          with b_col3:
             if st.button(
                 "🗑️ 삭제", key=f"del_btn_{char_id}", use_container_width=True
             ):
