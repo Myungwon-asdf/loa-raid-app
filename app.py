@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 기존 디자인과 완벽하게 일치시키는 CSS 스타일링
+# 기존 디자인과 100% 일치시키기 위한 커스텀 CSS
 st.markdown("""
 <style>
     :root {
@@ -31,7 +31,7 @@ st.markdown("""
       display: flex;
       align-items: center;
       background-color: #161b22;
-      border: 1px solid var(--border-color);
+      border: 1px solid #30363d;
       border-radius: 10px;
       padding: 12px 24px;
       gap: 32px;
@@ -45,7 +45,7 @@ st.markdown("""
     }
     .stat-label {
       font-size: 0.75rem;
-      color: var(--text-muted);
+      color: #8b949e;
       font-weight: 600;
       margin-bottom: 2px;
     }
@@ -54,7 +54,7 @@ st.markdown("""
       font-weight: 800;
     }
 
-    /* 캐릭터 카드 디자인 (기존과 동일한 구조 및 배치) */
+    /* 캐릭터 카드 디자인 */
     .character-card {
       background-color: #161b22;
       border: 1px solid #30363d;
@@ -286,7 +286,7 @@ else:
                     img_url = c.get('character_image', '')
                     img_html = f'<img src="{img_url}" class="char-profile-img" onerror="this.style.display=\'none\'">' if img_url else '<span style="color:#8b949e; font-size:0.75rem;">No Img</span>'
                     
-                    # 기존 UI와 완전히 똑같은 형태의 카드 상단 HTML
+                    # 기존 원본 UI와 100% 동일한 카드 정보 구조 (아이템 레벨, 전투력 라벨 분리)
                     st.markdown(f"""
                     <div class="character-card">
                         <div class="card-top-section">
@@ -332,7 +332,7 @@ else:
                     with header_c2:
                         st.markdown(f"<div style='text-align: right; font-size: 0.8rem; color: #10b981; font-weight: 700;'>{char_clears} / {len(filtered_raids)} 클리어</div>", unsafe_allow_html=True)
 
-                    # 레이드 클리어 토글 버튼 (클릭 시 DB 반영 + st.rerun으로 즉시 UI 갱신)
+                    # 레이드 클리어 토글 버튼 (클릭 시 DB 업데이트 후 즉시 st.rerun 반영)
                     if filtered_raids:
                         raid_cols = st.columns(len(filtered_raids))
                         for idx_r, raid in enumerate(filtered_raids):
@@ -348,7 +348,7 @@ else:
                                     
                                     # DB 업데이트
                                     supabase.table("characters").update({"completed_raids": completed}).eq("id", c['id']).execute()
-                                    # 즉시 UI 반영을 위한 리런
+                                    # 즉시 UI 동기화
                                     st.rerun()
 
                     col_s, col_d = st.columns(2)
