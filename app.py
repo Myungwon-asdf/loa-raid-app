@@ -16,7 +16,7 @@ apply_custom_styles()
 # 예시: st.connection("supabase") 등을 활용하거나 supabase-py 클라이언트를 사용합니다.
 # ------------------------------------------
 @st.cache_resource
-init_supabase_connection():
+def init_supabase_connection():
     # import os
     # from supabase import create_client, Client
     # url = st.secrets["supabase"]["url"]
