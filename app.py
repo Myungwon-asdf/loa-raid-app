@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from supabase import create_client
 
-# 1. 페이지 설정
+# 1. 페이지 설정 (wide 모드 유지)
 st.set_page_config(
     page_title="RAID MANAGER",
     page_icon="⚔️",
@@ -16,13 +16,13 @@ st.markdown(
         .stApp { background-color: #080b11; color: #f1f5f9; }
         .stat-container {
             background-color: #0d121f; border: 1px solid #1a2336;
-            border-radius: 10px; padding: 15px; text-align: center;
+            border-radius: 10px; padding: 12px; text-align: center;
         }
         .stat-label { font-size: 0.75rem; color: #64748b; font-weight: 600; }
-        .stat-value { font-size: 1.2rem; font-weight: 800; color: #ffffff; }
+        .stat-value { font-size: 1.1rem; font-weight: 800; color: #ffffff; }
         .card {
             background-color: #0f1523; border: 1px solid #1a2336;
-            border-radius: 12px; padding: 16px; margin-bottom: 16px;
+            border-radius: 12px; padding: 14px; margin-bottom: 12px;
         }
     </style>
 """,
@@ -45,7 +45,12 @@ supabase = init_supabase()
 def fetch_characters():
   try:
     response = supabase.table("characters").select("*").execute()
-    return response.data
+    data = response.data
+    for idx, c in enumerate(data):
+      if "order_idx" not in c or c["order_idx"] is None:
+        c["order_idx"] = idx
+    data = sorted(data, key=lambda x: x.get("order_idx", 0))
+    return data
   except Exception as e:
     st.error(f"캐릭터 데이터 로드 오류: {e}")
     return []
@@ -67,20 +72,17 @@ if "raid_masters" not in st.session_state:
   st.session_state.raid_masters = fetch_raid_master()
 
 
-# 💡 [핵심 로직] 캐릭터의 아이템 레벨과 레이드 마스터 데이터를 받아,
-# 레이드 그룹별로 캐릭터 레벨이 충족하는 가장 높은 레벨의 레이드만 추출
+# 캐릭터별 아이템 레벨에 맞는 레이드 추출 함수
 def get_character_available_raids(char_level):
   raw_raids = st.session_state.raid_masters
   if not raw_raids:
     return []
 
   df = pd.DataFrame(raw_raids)
-  # 1. 캐릭터 레벨 이하인 레이드들만 필터링
   df_filtered = df[df["req_level"] <= float(char_level)]
   if df_filtered.empty:
     return []
 
-  # 2. 남은 레이드 중에서 raid_group별로 req_level이 가장 높은 행 추출
   idx = df_filtered.groupby("raid_group")["req_level"].idxmax()
   highest_df = df_filtered.loc[idx].sort_values(by="req_level", ascending=True)
   return highest_df["name"].tolist()
@@ -95,21 +97,43 @@ st.markdown(
 st.markdown("---")
 
 chars = st.session_state.characters
-total_chars = len(chars)
+
+# 5. 소유주 지정 순서 정렬 탭 먼저 정의 (통계에서도 선택된 소유주를 알아야 하므로 위로 배치)
+custom_order = ["전체", "아리", "델리", "청이", "우니", "신효", "길치"]
+db_owners = list(set(c.get("owner", "기타") for c in chars))
+
+owners = [o for o in custom_order if o == "전체" or o in db_owners]
+for o in db_owners:
+  if o not in owners:
+    owners.append(o)
+
+selected_owner = st.radio(
+    "소유주 선택", owners, horizontal=True, label_visibility="collapsed"
+)
+
+# 💡 선택된 소유주에 따른 필터링된 캐릭터 목록 추출
+filtered_chars = (
+    chars
+    if selected_owner == "전체"
+    else [c for c in chars if c.get("owner") == selected_owner]
+)
+
+# 💡 통계 계산 (선택된 소유주 대상)
+total_chars = len(filtered_chars)
 avg_level = (
-    sum(float(c.get("item_level", 0) or 0) for c in chars) / total_chars
+    sum(float(c.get("item_level", 0) or 0) for c in filtered_chars)
+    / total_chars
     if total_chars > 0
     else 0
 )
 
-# 전체 가능한 최대 레이드 개수 계산 (통계용)
-total_max_possible_raids = 0
-for c in chars:
-  total_max_possible_raids += len(
-      get_character_available_raids(c.get("item_level", 0))
-  )
-
-total_completed_count = sum(len(c.get("completed_raids", [])) for c in chars)
+total_max_possible_raids = sum(
+    len(get_character_available_raids(c.get("item_level", 0)))
+    for c in filtered_chars
+)
+total_completed_count = sum(
+    len(c.get("completed_raids", [])) for c in filtered_chars
+)
 
 # 상단 통계 바
 col_stat1, col_stat2, col_stat3, col_btn1, col_btn2 = st.columns(
@@ -152,26 +176,7 @@ with col_btn2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 5. 소유주 지정 순서 정렬 탭 (전체 - 아리 - 델리 - 청이 - 우니 - 신효 - 길치)
-custom_order = ["전체", "아리", "델리", "청이", "우니", "신효", "길치"]
-db_owners = list(set(c.get("owner", "기타") for c in chars))
-
-owners = [o for o in custom_order if o == "전체" or o in db_owners]
-for o in db_owners:
-  if o not in owners:
-    owners.append(o)
-
-selected_owner = st.radio(
-    "소유주 선택", owners, horizontal=True, label_visibility="collapsed"
-)
-
-# 6. 캐릭터 카드 그리드 출력
-filtered_chars = (
-    chars
-    if selected_owner == "전체"
-    else [c for c in chars if c.get("owner") == selected_owner]
-)
-
+# 6. 캐릭터 카드 그리드 출력 (3열 배치)
 if not filtered_chars:
   st.markdown(
       "<div style='text-align:center; color:#64748b; padding:40px;'>등록된"
@@ -179,136 +184,196 @@ if not filtered_chars:
       unsafe_allow_html=True,
   )
 else:
-  cols = st.columns(2)
-  for idx, char in enumerate(filtered_chars):
-    with cols[idx % 2]:
-      char_id = char.get("id")
-      owner = char.get("owner", "")
-      name = char.get("name", "")
-      class_name = char.get("class_name", "미지정")
-      item_level = float(char.get("item_level", 0) or 0)
-      combat_power = char.get("combat_power", "-")
-      title = char.get("title", "")
-      gem_summary = char.get("gem_summary", "-")
-      char_image = char.get("character_image", "")
-      completed_raids = char.get("completed_raids", []) or []
+  cols_per_row = 3
+  for i in range(0, len(filtered_chars), cols_per_row):
+    row_chars = filtered_chars[i : i + cols_per_row]
+    cols = st.columns(cols_per_row)
 
-      # 💡 해당 캐릭터의 레벨에 맞는 레이드 목록 계산
-      char_available_raids = get_character_available_raids(item_level)
+    for idx, char in enumerate(row_chars):
+      with cols[idx]:
+        char_id = char.get("id")
+        owner = char.get("owner", "")
+        name = char.get("name", "")
+        class_name = char.get("class_name", "미지정")
+        item_level = float(char.get("item_level", 0) or 0)
+        combat_power = char.get("combat_power", "-")
+        title = char.get("title", "")
+        gem_summary = char.get("gem_summary", "-")
+        char_image = char.get("character_image", "")
+        completed_raids = char.get("completed_raids", []) or []
 
-      with st.container():
-        st.markdown(f'<div class="card">', unsafe_allow_html=True)
+        char_available_raids = get_character_available_raids(item_level)
 
-        img_col, info_col = st.columns([1, 2.2])
+        with st.container():
+          st.markdown(f'<div class="card">', unsafe_allow_html=True)
 
-        with img_col:
-          if char_image:
-            st.image(char_image, use_container_width=True)
-          else:
+          move_col1, title_col, move_col2 = st.columns([1, 4, 1])
+          current_absolute_idx = chars.index(char)
+
+          with move_col1:
+            if current_absolute_idx > 0:
+              if st.button("◀", key=f"move_left_{char_id}", help="앞으로 이동"):
+                prev_char = chars[current_absolute_idx - 1]
+                chars[current_absolute_idx]["order_idx"], prev_char[
+                    "order_idx"
+                ] = (
+                    prev_char.get("order_idx", current_absolute_idx - 1),
+                    chars[current_absolute_idx].get(
+                        "order_idx", current_absolute_idx
+                    ),
+                )
+                try:
+                  supabase.table("characters").update(
+                      {"order_idx": chars[current_absolute_idx]["order_idx"]}
+                  ).eq("id", char_id).execute()
+                  supabase.table("characters").update(
+                      {"order_idx": prev_char["order_idx"]}
+                  ).eq("id", prev_char["id"]).execute()
+                  st.session_state.characters = fetch_characters()
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"순서 변경 실패: {e}")
+
+          with title_col:
             st.markdown(
-                "<div"
-                " style='background:#1a2336; height:120px; border-radius:8px;"
-                " display:flex; align-items:center;"
-                " justify-content:center; color:#64748b; font-size:0.8rem;'>이미지"
-                " 없음</div>",
+                f"<div style='font-size: 0.75rem; color: #fbbf24; font-weight:"
+                f" 700; text-align: center;'>{owner}</div>",
                 unsafe_allow_html=True,
             )
 
-        with info_col:
-          st.markdown(
-              f"""
-                    <div style="font-size: 0.75rem; color: #fbbf24; font-weight: 700;">{owner} <span style="color:#94a3b8; font-weight:normal; margin-left:4px;">{title}</span></div>
-                    <div style="font-size: 1.2rem; font-weight: 800; color: #ffffff; margin-top: 2px;">{name}</div>
-                    <div style="font-size: 0.85rem; color: #94a3b8;">{class_name}</div>
-                    <div style="font-size: 0.85rem; margin-top: 6px; color: #f1f5f9;">아이템 레벨: <span style="font-weight: 800; color: #fbbf24;">{item_level}</span></div>
-                    <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 2px;">전투력: {combat_power}</div>
-                    """,
-              unsafe_allow_html=True,
-          )
+          with move_col2:
+            if current_absolute_idx < len(chars) - 1:
+              if st.button("▶", key=f"move_right_{char_id}", help="뒤로 이동"):
+                next_char = chars[current_absolute_idx + 1]
+                chars[current_absolute_idx]["order_idx"], next_char[
+                    "order_idx"
+                ] = (
+                    next_char.get("order_idx", current_absolute_idx + 1),
+                    chars[current_absolute_idx].get(
+                        "order_idx", current_absolute_idx
+                    ),
+                )
+                try:
+                  supabase.table("characters").update(
+                      {"order_idx": chars[current_absolute_idx]["order_idx"]}
+                  ).eq("id", char_id).execute()
+                  supabase.table("characters").update(
+                      {"order_idx": next_char["order_idx"]}
+                  ).eq("id", next_char["id"]).execute()
+                  st.session_state.characters = fetch_characters()
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"순서 변경 실패: {e}")
 
-        st.markdown(
-            "<hr style='margin: 12px 0; border-color: #1a2336;'>",
-            unsafe_allow_html=True,
-        )
+          img_col, info_col = st.columns([1, 2])
 
-        st.markdown(
-            f"""
-                <div style="font-size: 0.85rem; margin-bottom: 10px;">
-                    <span style="color: #38bdf8; font-weight: 600;">💎 보석</span> <span style="color: #cbd5e1; margin-left: 8px;">{gem_summary}</span>
-                </div>
-                """,
-            unsafe_allow_html=True,
-        )
-
-        completed_count = len(
-            [r for r in completed_raids if r in char_available_raids]
-        )
-        st.markdown(
-            f"<div style='display: flex; justify-content: space-between;"
-            f" align-items: center; margin-bottom: 4px;'><span"
-            f" style='font-size: 0.8rem; color: #94a3b8;'>주간 레이드 클리어"
-            f" 현황</span><span style='font-size: 0.8rem; color: #10b981;"
-            f" font-weight: 700;'>{completed_count} /"
-            f" {len(char_available_raids)} 클리어</span></div>",
-            unsafe_allow_html=True,
-        )
-
-        if not char_available_raids:
-          st.markdown(
-              "<div style='font-size: 0.8rem; color: #64748b; padding: 8px 0;'>입장"
-              " 가능한 레이드가 없습니다.</div>",
-              unsafe_allow_html=True,
-          )
-        else:
-          r_cols = st.columns(len(char_available_raids))
-          new_completed = list(completed_raids)
-
-          for r_idx, raid_name in enumerate(char_available_raids):
-            with r_cols[r_idx]:
-              is_checked = raid_name in completed_raids
-              checked_state = st.checkbox(
-                  raid_name, value=is_checked, key=f"raid_{char_id}_{r_idx}"
+          with img_col:
+            if char_image:
+              st.image(char_image, use_container_width=True)
+            else:
+              st.markdown(
+                  "<div"
+                  " style='background:#1a2336; height:100px; border-radius:8px;"
+                  " display:flex; align-items:center;"
+                  " justify-content:center; color:#64748b; font-size:0.75rem;'>이미지"
+                  " 없음</div>",
+                  unsafe_allow_html=True,
               )
 
-              if checked_state and raid_name not in new_completed:
-                new_completed.append(raid_name)
-              elif not checked_state and raid_name in new_completed:
-                new_completed.remove(raid_name)
+          with info_col:
+            st.markdown(
+                f"""
+                      <div style="font-size: 1.05rem; font-weight: 800; color: #ffffff; margin-top: 2px;">{name}</div>
+                      <div style="font-size: 0.8rem; color: #94a3b8;">{class_name}</div>
+                      <div style="font-size: 0.8rem; margin-top: 4px; color: #f1f5f9;">레벨: <span style="font-weight: 800; color: #fbbf24;">{item_level}</span></div>
+                      <div style="font-size: 0.75rem; color: #38bdf8;">전투력: {combat_power}</div>
+                      """,
+                unsafe_allow_html=True,
+            )
 
-          if set(new_completed) != set(completed_raids):
-            try:
-              supabase.table("characters").update(
-                  {"completed_raids": new_completed}
-              ).eq("id", char_id).execute()
-              st.session_state.characters = fetch_characters()
-              st.rerun()
-            except Exception as e:
-              st.error(f"업데이트 실패: {e}")
+          st.markdown(
+              "<hr style='margin: 8px 0; border-color: #1a2336;'>",
+              unsafe_allow_html=True,
+          )
 
-        st.markdown(
-            "<div style='margin-top: 12px;'></div>", unsafe_allow_html=True
-        )
-        b_col1, b_col2 = st.columns([1, 1])
-        with b_col1:
-          if st.button(
-              "🔄 API갱신", key=f"sync_btn_{char_id}", use_container_width=True
-          ):
-            st.toast(f"'{name}' 캐릭터 API 정보를 갱신했습니다.")
-        with b_col2:
-          if st.button(
-              "🗑️ 삭제", key=f"del_btn_{char_id}", use_container_width=True
-          ):
-            try:
-              supabase.table("characters").delete().eq(
-                  "id", char_id
-              ).execute()
-              st.success(f"'{name}' 캐릭터가 삭제되었습니다.")
-              st.session_state.characters = fetch_characters()
-              st.rerun()
-            except Exception as e:
-              st.error(f"삭제 실패: {e}")
+          st.markdown(
+              f"""
+                  <div style="font-size: 0.8rem; margin-bottom: 6px;">
+                      <span style="color: #38bdf8; font-weight: 600;">💎 보석</span> <span style="color: #cbd5e1; margin-left: 4px; font-size: 0.75rem;">{gem_summary}</span>
+                  </div>
+                  """,
+              unsafe_allow_html=True,
+          )
 
-        st.markdown(f"</div>", unsafe_allow_html=True)
+          completed_count = len(
+              [r for r in completed_raids if r in char_available_raids]
+          )
+          st.markdown(
+              f"<div style='display: flex; justify-content: space-between;"
+              f" align-items: center; margin-bottom: 4px;'><span"
+              f" style='font-size: 0.75rem; color: #94a3b8;'>주간 레이드"
+              f" 클리어</span><span style='font-size: 0.75rem; color: #10b981;"
+              f" font-weight: 700;'>{completed_count} /"
+              f" {len(char_available_raids)}</span></div>",
+              unsafe_allow_html=True,
+          )
+
+          if not char_available_raids:
+            st.markdown(
+                "<div style='font-size: 0.75rem; color: #64748b; padding: 4px"
+                " 0;'>입장 가능한 레이드가 없습니다.</div>",
+                unsafe_allow_html=True,
+            )
+          else:
+            r_cols = st.columns(len(char_available_raids))
+            new_completed = list(completed_raids)
+
+            for r_idx, raid_name in enumerate(char_available_raids):
+              with r_cols[r_idx]:
+                is_checked = raid_name in completed_raids
+                checked_state = st.checkbox(
+                    raid_name, value=is_checked, key=f"raid_{char_id}_{r_idx}"
+                )
+
+                if checked_state and raid_name not in new_completed:
+                  new_completed.append(raid_name)
+                elif not checked_state and raid_name in new_completed:
+                  new_completed.remove(raid_name)
+
+            if set(new_completed) != set(completed_raids):
+              try:
+                supabase.table("characters").update(
+                    {"completed_raids": new_completed}
+                ).eq("id", char_id).execute()
+                st.session_state.characters = fetch_characters()
+                st.rerun()
+              except Exception as e:
+                st.error(f"업데이트 실패: {e}")
+
+          st.markdown(
+              "<div style='margin-top: 8px;'></div>", unsafe_allow_html=True
+          )
+          b_col1, b_col2 = st.columns([1, 1])
+          with b_col1:
+            if st.button(
+                "🔄 API갱신", key=f"sync_btn_{char_id}", use_container_width=True
+            ):
+              st.toast(f"'{name}' 캐릭터 API 정보를 갱신했습니다.")
+          with b_col2:
+            if st.button(
+                "🗑️ 삭제", key=f"del_btn_{char_id}", use_container_width=True
+            ):
+              try:
+                supabase.table("characters").delete().eq(
+                    "id", char_id
+                ).execute()
+                st.success(f"'{name}' 캐릭터가 삭제되었습니다.")
+                st.session_state.characters = fetch_characters()
+                st.rerun()
+              except Exception as e:
+                st.error(f"삭제 실패: {e}")
+
+          st.markdown(f"</div>", unsafe_allow_html=True)
 
 # 7. 사이드바 - 캐릭터 추가 폼
 with st.sidebar:
@@ -334,6 +399,7 @@ with st.sidebar:
               "class_name": new_class_name,
               "item_level": new_item_level,
               "completed_raids": [],
+              "order_idx": len(chars),
           }
           supabase.table("characters").insert(new_data).execute()
           st.success(f"'{new_name}' 캐릭터가 DB에 추가되었습니다!")
