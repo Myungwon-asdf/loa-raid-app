@@ -41,7 +41,7 @@ def init_supabase():
 supabase = init_supabase()
 
 
-# 캐릭터 데이터 불러오기
+# 데이터 불러오기 함수들
 def fetch_characters():
   try:
     response = supabase.table("characters").select("*").execute()
@@ -51,7 +51,6 @@ def fetch_characters():
     return []
 
 
-# raid_master 테이블에서 데이터 불러오기
 def fetch_raid_master():
   try:
     response = supabase.table("raid_master").select("*").execute()
@@ -67,23 +66,18 @@ if "characters" not in st.session_state:
 if "raid_masters" not in st.session_state:
   st.session_state.raid_masters = fetch_raid_master()
 
-# 💡 [핵심 로직] raid_group별로 req_level이 가장 높은 레이드만 필터링
+
+# raid_group별 최고 레벨 레이드 추출
 def get_highest_raids():
   raw_raids = st.session_state.raid_masters
   if not raw_raids:
     return []
-
   df = pd.DataFrame(raw_raids)
-  # raid_group별로 그룹화하여 req_level이 최대인 행 추출
   idx = df.groupby("raid_group")["req_level"].idxmax()
-  highest_df = df.loc[idx]
-
-  # 요구 레벨 오름차순으로 정렬 (원하시면 레벨순 정렬)
-  highest_df = highest_df.sort_values(by="req_level", ascending=True)
+  highest_df = df.loc[idx].sort_values(by="req_level", ascending=True)
   return highest_df["name"].tolist()
 
 
-# 최고 레벨 레이드 목록 추출 (예: 성당(3단계), 벨가르딘(나메) 등)
 available_raids = get_highest_raids()
 
 # 4. 상단 헤더 영역
@@ -147,8 +141,17 @@ with col_btn2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 5. 소유주 필터 탭
-owners = ["전체"] + list(set(c.get("owner", "기타") for c in chars))
+# 5. 소유주 지정 순서 정렬 탭
+custom_order = ["전체", "아리", "델리", "청이", "우니", "신효", "길치"]
+db_owners = list(set(c.get("owner", "기타") for c in chars))
+
+# 지정된 순서에 포함되어 있으면서 실제 DB에 존재하는 소유주들만 추출하고,
+# 지정 순서에 없는 새로운 소유주가 있다면 뒤에 추가합니다.
+owners = [o for o in custom_order if o == "전체" or o in db_owners]
+for o in db_owners:
+  if o not in owners:
+    owners.append(o)
+
 selected_owner = st.radio(
     "소유주 선택", owners, horizontal=True, label_visibility="collapsed"
 )
@@ -225,7 +228,6 @@ else:
             unsafe_allow_html=True,
         )
 
-        # 주간 레이드 클리어 현황 (그룹별 최고 레벨 레이드만 동적 렌더링)
         completed_count = len(
             [r for r in completed_raids if r in available_raids]
         )
@@ -267,7 +269,6 @@ else:
             except Exception as e:
               st.error(f"업데이트 실패: {e}")
 
-        # 하단 버튼 영역
         st.markdown(
             "<div style='margin-top: 12px;'></div>", unsafe_allow_html=True
         )
