@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용 (스크린샷 레이아웃 맞춤형 디자인)
+# 2. 커스텀 CSS 적용 (두 번째 스크린샷의 깔끔한 버튼 및 카드 레이아웃 맞춤)
 st.markdown(
     """
     <style>
@@ -26,14 +26,16 @@ st.markdown(
             border-radius: 12px; padding: 16px; margin-bottom: 16px;
             display: flex; flex-direction: column; height: 100%;
         }
-        /* 레이드 버튼 내부 텍스트 줄바꿈 및 간격 최적화 */
+        /* 레이드 버튼 디자인 수정: 텍스트가 깔끔하게 한 줄로 들어가도록 정렬 */
         div[data-testid="stButton"] > button {
-            white-space: pre-wrap !important;
-            line-height: 1.2 !important;
-            height: auto !important;
-            padding-top: 6px !important;
-            padding-bottom: 6px !important;
-            font-size: 0.8rem !important;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
+            height: 38px !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+            font-size: 0.75rem !important;
         }
     </style>
 """,
@@ -435,7 +437,7 @@ else:
               unsafe_allow_html=True,
           )
 
-          # 레이드 버튼 목록 (윗줄: 레이드명, 아랫줄: 난이도)
+          # 레이드 버튼 목록 (두 번째 사진 형태처럼 레이드명(난이도) 형태로 깔끔하게 한 줄 표기)
           if not char_available_raids:
             st.markdown(
                 "<div style='font-size: 0.75rem; color: #64748b; padding: 4px"
@@ -449,11 +451,15 @@ else:
             for r_idx, raid_info in enumerate(char_available_raids):
               raid_name = raid_info["name"]
               raid_group = raid_info.get(
-                  "raid_group", raid_info.get("group", "일반")
-              )  # 수정된 부분
+                  "raid_group", raid_info.get("group", "")
+              )
               is_completed = raid_name in completed_raids
 
-              button_label = f"{raid_name}\n{raid_group}"
+              # 버튼 라벨을 깔끔하게 '레이드명(난이도)' 형식으로 조합
+              if raid_group:
+                button_label = f"{raid_name}({raid_group})"
+              else:
+                button_label = f"{raid_name}"
 
               with r_cols[r_idx]:
                 if st.button(
