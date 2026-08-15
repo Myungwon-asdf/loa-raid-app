@@ -257,18 +257,17 @@ def get_character_available_raids(char_level):
   return highest_df.to_dict(orient="records")
 
 
-# 4. 상단 헤더 영역 (로고와 글씨 간격 밀착 조정)
+# 4. 상단 헤더 영역 (로고와 타이틀 간격을 더 바짝 밀착)
 header_col1, header_col2, header_col3 = str_lit.columns([2.2, 2.5, 1.2])
 
 with header_col1:
   current_dir = os.path.dirname(os.path.abspath(__file__))
   logo_path = os.path.join(current_dir, "logo.png")
 
-  # 간격 좁히기 위해 컬럼 비율 조정 (0.15, 1)
-  logo_col, title_col = str_lit.columns([0.15, 1])
+  logo_col, title_col = str_lit.columns([0.11, 1])
   with logo_col:
     try:
-      str_lit.image(logo_path, width=42)
+      str_lit.image(logo_path, width=38)
     except Exception:
       str_lit.markdown("⚔️")
 
@@ -375,7 +374,7 @@ with header_col3:
       str_lit.toast("주간 기록이 초기화되었습니다.")
       str_lit.rerun()
 
-# 캐릭터 추가 모달 / 폼 영역 복구
+# 캐릭터 추가 모달 / 폼 영역
 if str_lit.session_state.get("show_add_modal", False):
   with str_lit.form("add_character_form"):
     str_lit.markdown("### ➕ 새 캐릭터 추가")
@@ -398,7 +397,6 @@ if str_lit.session_state.get("show_add_modal", False):
         with str_lit.spinner(f"'{new_char_name}' API 조회 및 등록 중..."):
           api_res = sync_single_character_from_api(new_char_name.strip())
           if api_res["status"] == "OK":
-            owner_chars = [c for c in chars if c.get("owner") == new_owner]
             new_order_idx = len(chars)
             new_record = {
                 "owner": new_owner,
@@ -449,7 +447,7 @@ with nav_col1:
 
 str_lit.markdown("<br>", unsafe_allow_html=True)
 
-# 6. 캐릭터 카드 그리드 출력 (셀렉트박스 제거 및 좌우 이동 버튼 적용)
+# 6. 캐릭터 카드 그리드 출력 (현재 선택된 탭의 캐릭터만 정확히 매칭 및 순서 이동 버튼 연동)
 if not filtered_chars:
   str_lit.markdown(
       "<div style='text-align:center; color:#64748b; padding:40px;'>선택된"
@@ -497,13 +495,17 @@ else:
               )
 
           with info_col:
+            # 현재 선택된 소유주 탭에 속한 캐릭터 목록 기준으로 순번 산정
             owner_chars = [
-                c for c in chars if c.get("owner", "기타") == owner
+                c for c in chars if c.get("owner", "기타") == str_lit.session_state.selected_owner
             ]
             owner_char_ids = [c["id"] for c in owner_chars]
-            current_owner_pos = owner_char_ids.index(char_id) + 1
+            
+            if char_id in owner_char_ids:
+              current_owner_pos = owner_char_ids.index(char_id) + 1
+            else:
+              current_owner_pos = 1
 
-            # 셀렉트박스 대신 좌우 이동 버튼 배치
             sc1, sc2, sc3 = str_lit.columns([1.2, 0.9, 0.9])
             with sc1:
               str_lit.markdown(
@@ -517,11 +519,11 @@ else:
                 if current_owner_pos > 1:
                   target_idx = current_owner_pos - 2
                   owner_chars.pop(current_owner_pos - 1)
-                  owner_chars.insert(target_idx, moved_item := char)
+                  owner_chars.insert(target_idx, char)
                   
                   new_chars_list = []
                   owner_iter_map = {o: [c for c in chars if c.get("owner", "기타") == o] for o in owners}
-                  owner_iter_map[owner] = owner_chars
+                  owner_iter_map[str_lit.session_state.selected_owner] = owner_chars
                   for o_name in owners:
                     if o_name in owner_iter_map:
                       new_chars_list.extend(owner_iter_map[o_name])
@@ -541,7 +543,7 @@ else:
                   
                   new_chars_list = []
                   owner_iter_map = {o: [c for c in chars if c.get("owner", "기타") == o] for o in owners}
-                  owner_iter_map[owner] = owner_chars
+                  owner_iter_map[str_lit.session_state.selected_owner] = owner_chars
                   for o_name in owners:
                     if o_name in owner_iter_map:
                       new_chars_list.extend(owner_iter_map[o_name])
