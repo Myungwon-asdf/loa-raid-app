@@ -30,7 +30,7 @@ st.markdown(
 )
 
 
-# 3. Supabase 클라이언트 초기화 (Streamlit Secrets 연동)
+# 3. Supabase 클라이언트 초기화
 @st.cache_resource
 def init_supabase():
   url = st.secrets["SUPABASE_URL"]
@@ -51,7 +51,6 @@ def fetch_characters():
     return []
 
 
-# 데이터 초기화 및 세션 관리
 if "characters" not in st.session_state:
   st.session_state.characters = fetch_characters()
 
@@ -65,8 +64,11 @@ st.markdown("---")
 
 chars = st.session_state.characters
 total_chars = len(chars)
+# item_level 컬럼 숫자형 변환 안전 처리
 avg_level = (
-    sum(c.get("level", 0) for c in chars) / total_chars if total_chars > 0 else 0
+    sum(float(c.get("item_level", 0) or 0) for c in chars) / total_chars
+    if total_chars > 0
+    else 0
 )
 
 # 상단 통계 바
@@ -114,7 +116,7 @@ selected_owner = st.radio(
     "소유주 선택", owners, horizontal=True, label_visibility="collapsed"
 )
 
-# 6. 캐릭터 카드 그리드 출력
+# 6. 캐릭터 카드 그리드 출력 (실제 DB 컬럼: class_name, item_level 반영)
 filtered_chars = (
     chars
     if selected_owner == "전체"
@@ -131,35 +133,46 @@ else:
   cols = st.columns(3)
   for idx, char in enumerate(filtered_chars):
     with cols[idx % 3]:
+      owner = char.get("owner", "")
+      name = char.get("name", "")
+      class_name = char.get("class_name", "미지정")
+      item_level = char.get("item_level", 0)
+      combat_power = char.get("combat_power", "-")
+      title = char.get("title", "")
+      gem_summary = char.get("gem_summary", "-")
+
       st.markdown(
           f"""
                 <div class="card">
-                    <div style="font-size: 0.75rem; color: #fbbf24; font-weight: 700;">{char.get('owner', '')}</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: #ffffff; margin-top: 2px;">{char.get('name', '')}</div>
-                    <div style="font-size: 0.8rem; color: #64748b;">{char.get('class', '미지정')}</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: #fbbf24; font-weight: 700;">{owner}</span>
+                        <span style="font-size: 0.7rem; color: #94a3b8; background: #1a2336; padding: 2px 6px; border-radius: 4px;">{title}</span>
+                    </div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #ffffff; margin-top: 4px;">{name}</div>
+                    <div style="font-size: 0.8rem; color: #64748b;">{class_name}</div>
                     <hr style="margin: 10px 0; border-color: #1a2336;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
                         <span style="color: #64748b;">아이템 레벨</span>
-                        <span style="font-weight: 800; color: #fbbf24;">Lv.{char.get('level', 0)}</span>
+                        <span style="font-weight: 800; color: #fbbf24;">Lv.{item_level}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 6px;">
-                        <span style="color: #64748b;">상태</span>
-                        <span style="font-weight: 600; color: #10b981;">{char.get('status', '정상')}</span>
+                        <span style="color: #64748b;">전투력 / 보석</span>
+                        <span style="font-weight: 600; color: #38bdf8;">{combat_power} | {gem_summary}</span>
                     </div>
                 </div>
                 """,
           unsafe_allow_html=True,
       )
 
-# 7. 사이드바 - Supabase DB 연동 캐릭터 추가 폼
+# 7. 사이드바 - 캐릭터 추가 폼
 with st.sidebar:
   st.subheader("➕ 캐릭터 추가")
   with st.form("add_char_form", clear_on_submit=True):
     new_owner = st.text_input("소유자명")
     new_name = st.text_input("캐릭터명")
-    new_class = st.text_input("직업")
-    new_level = st.number_input(
-        "아이템 레벨", min_value=1250, max_value=1750, value=1600
+    new_class_name = st.text_input("직업 (class_name)")
+    new_item_level = st.number_input(
+        "아이템 레벨", min_value=1250.0, max_value=1800.0, value=1640.0, step=0.01
     )
     submitted = st.form_submit_button("DB에 추가하기")
 
@@ -168,17 +181,15 @@ with st.sidebar:
         st.error("소유자와 캐릭터명을 입력해주세요.")
       else:
         try:
-          # Supabase 테이블에 데이터 삽입
           new_data = {
+              "id": str(int(pd.Timestamp.now().timestamp() * 1000)),
               "owner": new_owner,
               "name": new_name,
-              "class": new_class,
-              "level": new_level,
-              "status": "정상",
+              "class_name": new_class_name,
+              "item_level": new_item_level,
           }
           supabase.table("characters").insert(new_data).execute()
           st.success(f"'{new_name}' 캐릭터가 DB에 추가되었습니다!")
-          # 최신 데이터 동기화
           st.session_state.characters = fetch_characters()
           st.rerun()
         except Exception as e:
