@@ -11,7 +11,7 @@ str_lit.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용
+# 2. 커스텀 CSS 적용 (클리어된 버튼(#) 초록색 스타일 전역 적용 포함)
 str_lit.markdown(
     """
     <style>
@@ -77,7 +77,7 @@ str_lit.markdown(
             font-size: 0.75rem;
         }
 
-        /* 기본 레이드 버튼 디자인 */
+        /* 기본 레이드 버튼 디자인 (미완료) */
         div[data-testid="stButton"] > button {
             white-space: nowrap !important;
             word-break: keep-all !important;
@@ -257,7 +257,7 @@ def get_character_available_raids(char_level):
   return highest_df.to_dict(orient="records")
 
 
-# 4. 상단 헤더 영역 (로고와 타이틀 간격을 더 바짝 밀착)
+# 4. 상단 헤더 영역
 header_col1, header_col2, header_col3 = str_lit.columns([2.2, 2.5, 1.2])
 
 with header_col1:
@@ -447,7 +447,7 @@ with nav_col1:
 
 str_lit.markdown("<br>", unsafe_allow_html=True)
 
-# 6. 캐릭터 카드 그리드 출력 (현재 선택된 탭의 캐릭터만 정확히 매칭 및 순서 이동 버튼 연동)
+# 6. 캐릭터 카드 그리드 출력
 if not filtered_chars:
   str_lit.markdown(
       "<div style='text-align:center; color:#64748b; padding:40px;'>선택된"
@@ -495,7 +495,6 @@ else:
               )
 
           with info_col:
-            # 현재 선택된 소유주 탭에 속한 캐릭터 목록 기준으로 순번 산정
             owner_chars = [
                 c for c in chars if c.get("owner", "기타") == str_lit.session_state.selected_owner
             ]
@@ -506,12 +505,13 @@ else:
             else:
               current_owner_pos = 1
 
+            # 카드 상단에는 소유주 이름 대신 깔끔하게 캐릭터 번호(순번)만 표시
             sc1, sc2, sc3 = str_lit.columns([1.2, 0.9, 0.9])
             with sc1:
               str_lit.markdown(
                   f"<span style='font-size: 0.68rem; font-weight: 700;"
                   " background-color: #1e293b; color: #94a3b8; padding: 2px"
-                  f" 6px; border-radius: 4px;'>{owner} ({current_owner_pos})</span>",
+                  f" 6px; border-radius: 4px;'>No. {current_owner_pos}</span>",
                   unsafe_allow_html=True,
               )
             with sc2:
@@ -610,6 +610,24 @@ else:
               button_label = f"✓ {raid_name}" if is_completed else raid_name
 
               with r_cols[r_idx]:
+                # 클리어된 레이드 버튼은 초록색 배경, 미완료는 기본 색상 적용
+                btn_bg = "#10b981" if is_completed else "#090d16"
+                btn_border = "#059669" if is_completed else "#1e293b"
+                btn_color = "#ffffff" if is_completed else "#64748b"
+
+                str_lit.markdown(
+                    f"""
+                    <style>
+                    div[data-testid="stButton"] > button[kind="secondary"][key*="raid_btn_{char_id}_{r_idx}"] {{
+                        background-color: {btn_bg} !important;
+                        border-color: {btn_border} !important;
+                        color: {btn_color} !important;
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
                 if str_lit.button(
                     button_label,
                     key=f"raid_btn_{char_id}_{r_idx}",
