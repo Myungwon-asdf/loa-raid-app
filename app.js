@@ -1,12 +1,9 @@
 const DATABASE_URL = "https://ozlduwxchiyuqmlztokh.supabase.co";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96bGR1d3hjaGl5dXFtbHp0b2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDAzNDQsImV4cCI6MjEwMjM3NjM0NH0.wbtL7PwyPD8xftkjf2fXedUZen6TTpp_-dS9dv7YF1Y";
 
-if (typeof window.supabaseClientInstance === 'undefined') {
-  window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
-const supabase = window.supabaseClientInstance;
+// 변수명을 supabase가 아닌 dbClient로 고정
+const dbClient = window.supabase.createClient(DATABASE_URL, ANON_KEY);
 
-// 로스트아크 API 키가 필요한 요청은 반드시 서버리스 함수를 거칩니다 (키 노출 방지)
 const LOSTARK_PROXY_URL = "/api/lostark-sync";
 
 let masterRaids = [];
@@ -17,10 +14,6 @@ let tempApiData = null;
 
 const preferredOwnerOrder = ['아리', '델리', '청이', '우니', '신효', '길치'];
 
-// ------------------------------------------------------------
-// DB row(snake_case) <-> 프론트 객체(camelCase) 변환
-// 기존 렌더링 코드를 최대한 그대로 재사용하기 위한 매핑 레이어
-// ------------------------------------------------------------
 function charRowToObj(row) {
   return {
     id: row.id,
@@ -62,9 +55,6 @@ function raidRowToObj(row) {
   };
 }
 
-// ------------------------------------------------------------
-// 초기 로딩
-// ------------------------------------------------------------
 window.onload = function () {
   loadDashboardData();
   subscribeRealtime();
@@ -75,8 +65,8 @@ async function loadDashboardData() {
   try {
     const [{ data: raidRows, error: raidErr }, { data: charRows, error: charErr }] =
       await Promise.all([
-        supabase.from('raid_master').select('*'),
-        supabase.from('characters').select('*').order('order_idx', { ascending: true })
+        dbClient.from('raid_master').select('*'),
+        dbClient.from('characters').select('*').order('order_idx', { ascending: true })
       ]);
 
     if (raidErr) throw raidErr;
@@ -105,12 +95,8 @@ function showLoading(visible) {
   document.getElementById('loadingOverlay').style.display = visible ? 'flex' : 'none';
 }
 
-// ------------------------------------------------------------
-// Realtime: 다른 사람이 체크/수정하면 내 화면도 자동 갱신
-// (기존의 1초 폴링 + LockService 방식을 대체)
-// ------------------------------------------------------------
 function subscribeRealtime() {
-  supabase
+  dbClient
     .channel('characters-and-raids')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'characters' }, () => {
       refreshCharactersOnly();
@@ -122,16 +108,13 @@ function subscribeRealtime() {
 }
 
 async function refreshCharactersOnly() {
-  const { data, error } = await supabase.from('characters').select('*').order('order_idx', { ascending: true });
+  const { data, error } = await dbClient.from('characters').select('*').order('order_idx', { ascending: true });
   if (error) { console.error(error); return; }
   characterList = (data || []).map(charRowToObj);
   if (currentMainView === 'CHARS') renderDashboard();
   else renderScheduleView();
 }
 
-// ------------------------------------------------------------
-// 뷰 전환
-// ------------------------------------------------------------
 function switchView(viewName) {
   currentMainView = viewName;
   const btnChars = document.getElementById('btnTabChars');
@@ -189,8 +172,6 @@ function filterByOwner(owner) {
   else renderScheduleView();
 }
 
-// 캐릭터 레벨 기준으로 "각 레이드군에서 갈 수 있는 가장 높은 관문"만 남기는 로직
-// (원본과 동일하게 유지)
 function getAvailableRaidsForCharacter(charLevel) {
   const groupMap = {};
   masterRaids.forEach(r => {
@@ -204,9 +185,6 @@ function getAvailableRaidsForCharacter(charLevel) {
   return Object.values(groupMap);
 }
 
-// ------------------------------------------------------------
-// 대시보드 렌더링 (카드 UI) - 원본 마크업 그대로 유지
-// ------------------------------------------------------------
 function renderDashboard() {
   const searchQuery = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
   let filteredChars = characterList.filter(c => c.owner === currentOwnerFilter);
@@ -320,9 +298,6 @@ function renderDashboard() {
   });
 }
 
-// ------------------------------------------------------------
-// 레이드 클리어 토글 (같은 레이드군의 다른 관문 체크는 자동 해제 - 원본과 동일)
-// ------------------------------------------------------------
 async function toggleRaid(charId, raidId) {
   const targetChar = characterList.find(c => c.id === charId);
   if (!targetChar) return;
@@ -341,11 +316,10 @@ async function toggleRaid(charId, raidId) {
     targetChar.completedRaids = targetChar.completedRaids.filter(id => id !== raidId);
   }
 
-  // 낙관적 업데이트: 화면 먼저 갱신, DB는 비동기로 반영
   if (currentMainView === 'CHARS') renderDashboard();
   else renderScheduleView();
 
-  const { error } = await supabase
+  const { error } = await dbClient
     .from('characters')
     .update({ completed_raids: targetChar.completedRaids })
     .eq('id', charId);
@@ -356,15 +330,12 @@ async function toggleRaid(charId, raidId) {
   }
 }
 
-// ------------------------------------------------------------
-// 주간 초기화 (현재 선택된 소유주만 - 원본과 동일한 범위)
-// ------------------------------------------------------------
 async function resetWeeklyRaids() {
   if (!confirm(`현재 소유주(${currentOwnerFilter}) 캐릭터들의 주간 레이드 완료 기록을 초기화하시겠습니까?`)) return;
 
   showLoading(true);
   const targetIds = characterList.filter(c => c.owner === currentOwnerFilter).map(c => c.id);
-  const { error } = await supabase
+  const { error } = await dbClient
     .from('characters')
     .update({ completed_raids: [] })
     .in('id', targetIds);
@@ -375,9 +346,6 @@ async function resetWeeklyRaids() {
   await loadDashboardData();
 }
 
-// ------------------------------------------------------------
-// 로스트아크 API 동기화 (서버리스 함수 경유 - api/lostark-sync.js 참고)
-// ------------------------------------------------------------
 async function callLostarkProxy(characterName) {
   const res = await fetch(LOSTARK_PROXY_URL, {
     method: 'POST',
@@ -396,7 +364,7 @@ async function refreshApiData() {
   for (const c of characterList) {
     const res = await callLostarkProxy(c.name);
     if (res.status === 'OK') {
-      await supabase.from('characters').update({
+      await dbClient.from('characters').update({
         class_name: res.className,
         item_level: res.itemLevel,
         combat_power: res.combatPower,
@@ -405,7 +373,7 @@ async function refreshApiData() {
         character_image: res.characterImage
       }).eq('id', c.id);
     }
-    await new Promise(r => setTimeout(r, 300)); // API 레이트리밋 완화
+    await new Promise(r => setTimeout(r, 300));
   }
 
   await loadDashboardData();
@@ -419,7 +387,7 @@ async function refreshSingleChar(charName) {
   if (res.status === 'OK') {
     const target = characterList.find(c => c.name === charName);
     if (target) {
-      await supabase.from('characters').update({
+      await dbClient.from('characters').update({
         class_name: res.className,
         item_level: res.itemLevel,
         combat_power: res.combatPower,
@@ -435,9 +403,6 @@ async function refreshSingleChar(charName) {
   }
 }
 
-// ------------------------------------------------------------
-// 드래그앤드롭 순서 변경 (order_idx 재계산 후 일괄 저장)
-// ------------------------------------------------------------
 let draggedCardId = null;
 
 function handleDragStart() {
@@ -467,7 +432,7 @@ async function handleDrop(e) {
   renderDashboard();
 
   showLoading(true);
-  const updates = characterList.map(c => supabase.from('characters').update({ order_idx: c.orderIdx }).eq('id', c.id));
+  const updates = characterList.map(c => dbClient.from('characters').update({ order_idx: c.orderIdx }).eq('id', c.id));
   await Promise.all(updates);
   await loadDashboardData();
 }
@@ -476,9 +441,6 @@ function handleDragEnd() {
   document.querySelectorAll('#characterGrid > div').forEach(col => col.classList.remove('drag-over'));
 }
 
-// ------------------------------------------------------------
-// 남은 레이드 요약 뷰
-// ------------------------------------------------------------
 function renderScheduleView() {
   const container = document.getElementById('scheduleListContainer');
   container.innerHTML = '';
@@ -522,9 +484,6 @@ function renderScheduleView() {
   });
 }
 
-// ------------------------------------------------------------
-// 캐릭터 추가
-// ------------------------------------------------------------
 let addModal;
 function openAddCharacterModal() {
   document.getElementById('newOwner').value = currentOwnerFilter || '';
@@ -571,7 +530,7 @@ async function submitNewCharacter() {
 
   if (addModal) addModal.hide();
   showLoading(true);
-  const { error } = await supabase.from('characters').insert(charObjToRow(newChar));
+  const { error } = await dbClient.from('characters').insert(charObjToRow(newChar));
   if (error) alert('추가 실패: ' + error.message);
   currentOwnerFilter = owner;
   await loadDashboardData();
@@ -580,14 +539,11 @@ async function submitNewCharacter() {
 async function deleteCharacter(charId) {
   if (!confirm('이 캐릭터를 삭제하시겠습니까?')) return;
   showLoading(true);
-  const { error } = await supabase.from('characters').delete().eq('id', charId);
+  const { error } = await dbClient.from('characters').delete().eq('id', charId);
   if (error) alert('삭제 실패: ' + error.message);
   await loadDashboardData();
 }
 
-// ------------------------------------------------------------
-// 레이드 마스터 관리
-// ------------------------------------------------------------
 let raidModal;
 function openRaidManageModal() {
   renderRaidManageTable();
@@ -620,7 +576,7 @@ async function addNewRaidMaster() {
     req_level: reqLevel
   };
 
-  const { error } = await supabase.from('raid_master').insert(newRaid);
+  const { error } = await dbClient.from('raid_master').insert(newRaid);
   if (error) { alert('추가 실패: ' + error.message); return; }
 
   document.getElementById('newRaidGroup').value = '';
@@ -632,8 +588,5 @@ async function addNewRaidMaster() {
 
 async function deleteRaidMaster(raidId) {
   if (!confirm('해당 레이드를 삭제하시겠습니까?')) return;
-  const { error } = await supabase.from('raid_master').delete().eq('id', raidId);
-  if (error) { alert('삭제 실패: ' + error.message); return; }
-  await loadDashboardData();
-  renderRaidManageTable();
+  const { error } = await dbClient.from('raid_master').delete().eq('id', raidId);
 }
