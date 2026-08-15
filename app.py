@@ -299,16 +299,28 @@ else:
                     c_level = float(c.get('item_level') or 0)
                     completed = c.get('completed_raids', []) or []
                     
-                    st.caption("주간 레이드 클리어 현황")
-                    for raid in master_raids:
-                        if c_level >= raid.get('req_level', 0):
-                            is_checked = raid['id'] in completed
-                            checked_status = st.checkbox(f"{raid['name']} (Lv.{raid['req_level']})", value=is_checked, key=f"raid_{c['id']}_{raid['id']}")
-                            if checked_status != is_checked:
-                                if checked_status: completed.append(raid['id'])
-                                else: completed = [rid for rid in completed if rid != raid['id']]
-                                supabase.table("characters").update({"completed_raids": completed}).eq("id", c['id']).execute()
-                                st.rerun()
+                    st.caption("주간 레이드 클리어 현황 (최고 난이도)")
+                    
+                    # --- [추가된 로직] 레이드 군별 가장 높은 난이도만 필터링 ---
+                    available_raids = [r for r in master_raids if c_level >= r.get('req_level', 0)]
+                    highest_raids_dict = {}
+                    for raid in available_raids:
+                        g = raid.get('raid_group')
+                        # req_level이 더 높거나, 레벨이 같을 경우 id 기준 등으로 정렬되도록 처리 (req_level desc 정렬 상태 유지)
+                        if g not in highest_raids_dict:
+                            highest_raids_dict[g] = raid
+                    
+                    filtered_raids = list(highest_raids_dict.values())
+                    # --------------------------------------------------------
+
+                    for raid in filtered_raids:
+                        is_checked = raid['id'] in completed
+                        checked_status = st.checkbox(f"{raid['name']} (Lv.{raid['req_level']})", value=is_checked, key=f"raid_{c['id']}_{raid['id']}")
+                        if checked_status != is_checked:
+                            if checked_status: completed.append(raid['id'])
+                            else: completed = [rid for rid in completed if rid != raid['id']]
+                            supabase.table("characters").update({"completed_raids": completed}).eq("id", c['id']).execute()
+                            st.rerun()
 
                     col_s, col_d = st.columns(2)
                     with col_s:
