@@ -11,7 +11,7 @@ str_lit.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용 (제공된 HTML/CSS 디자인 시스템 완전 일치화)
+# 2. 커스텀 CSS 적용 (버튼 및 레이아웃 밀림 현상 완벽 보정)
 str_lit.markdown(
     """
     <style>
@@ -101,19 +101,19 @@ str_lit.markdown(
             font-size: 0.75rem;
         }
 
-        /* 기본 버튼 디자인 오버라이드 */
+        /* 기본 버튼 디자인 강제 고정 (글자 수에 따른 크기 깨짐 방지) */
         div[data-testid="stButton"] > button {
+            width: 100% !important;
             white-space: nowrap !important;
             word-break: keep-all !important;
-            height: 36px !important;
-            padding: 0px 8px !important;
-            font-size: 0.75rem !important;
+            height: 34px !important;
+            padding: 0px 4px !important;
+            font-size: 0.72rem !important;
             font-weight: 700 !important;
             border-radius: 8px !important;
             border: 1px solid #1e293b !important;
             background-color: #1e293b !important;
             color: #cbd5e1 !important;
-            width: 100% !important;
         }
         div[data-testid="stButton"] > button:hover {
             border-color: #334155 !important;
@@ -204,20 +204,22 @@ def sync_single_character_from_api(character_name):
         raw_level = str(profile.get("ItemAvgLevel", "0")).replace(",", "")
         item_level = float(raw_level) if raw_level else 0.0
 
+        # 전투력 파싱 오류 방지 (제대로 된 수치나 기본 포맷 적용)
         combat_power = "-"
-        if profile.get("CombatPower"):
-            combat_power = str(profile["CombatPower"])
-        elif profile.get("Stats") and isinstance(profile["Stats"], list):
+        stats = profile.get("Stats", [])
+        if stats and isinstance(stats, list):
             cp_stat = next(
                 (
                     s
-                    for s in profile["Stats"]
-                    if s.get("Type") in ["공격력", "전투력"]
+                    for s in stats
+                    if s.get("Type") in ["공격력", "전투력", "최대 생명력"]
                 ),
                 None,
             )
             if cp_stat:
                 combat_power = str(cp_stat.get("Value", "-"))
+        if combat_power == "-" and profile.get("CombatPower"):
+            combat_power = str(profile["CombatPower"])
 
         import re
 
@@ -280,7 +282,7 @@ def get_character_available_raids(char_level):
     return highest_df.to_dict(orient="records")
 
 
-# 4. 상단 헤더 영역 구성 (디자인 가이드 반영)
+# 4. 상단 헤더 영역 구성
 header_col1, header_col2, header_col3 = str_lit.columns([2.5, 2.5, 1.2])
 
 with header_col1:
@@ -444,7 +446,7 @@ if "current_view" not in str_lit.session_state:
 
 str_lit.markdown("<hr style='margin: 15px 0; border-color: #1a2336;'>", unsafe_allow_html=True)
 
-# 캐릭터 추가 모달 폼 처리
+# 캐릭터 추가 모달 폼
 if str_lit.session_state.get("show_add_modal", False):
     with str_lit.form("add_character_form"):
         str_lit.markdown("### ➕ 새 캐릭터 추가")
@@ -543,7 +545,6 @@ if str_lit.session_state.current_view == "SCHEDULE":
             )
 
 else:
-    # 캐릭터 카드 그리드 출력 (완전 일치화된 디자인)
     if not filtered_chars:
         str_lit.markdown(
             f"<div style='text-align:center; color:#64748b; padding:40px;'>선택된 소유주({str_lit.session_state.selected_owner})의 캐릭터가 없습니다.</div>",
@@ -681,7 +682,7 @@ else:
                                 unsafe_allow_html=True,
                             )
                         else:
-                            str_lit.markdown("<div style='padding: 0 16px 16px 16px;'>", unsafe_allow_html=True)
+                            str_lit.markdown("<div style='padding: 0 16px 12px 16px;'>", unsafe_allow_html=True)
                             r_cols = str_lit.columns(len(char_available_raids))
                             new_completed = list(completed_raids)
 
@@ -729,7 +730,8 @@ else:
                                             str_lit.error(f"업데이트 실패: {e}")
                             str_lit.markdown("</div>", unsafe_allow_html=True)
 
-                        b_col1, b_col2, b_col3 = str_lit.columns([1.5, 1, 1])
+                        # 하단 컨트롤 버튼 정렬 수정 (간격 맞춤)
+                        b_col1, b_col2, b_col3 = str_lit.columns([1.2, 1, 1])
                         with b_col2:
                             if str_lit.button(
                                 "🔄 갱신",
