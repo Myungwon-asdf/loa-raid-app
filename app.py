@@ -67,18 +67,24 @@ if "raid_masters" not in st.session_state:
   st.session_state.raid_masters = fetch_raid_master()
 
 
-# raid_group별 최고 레벨 레이드 추출
-def get_highest_raids():
+# 💡 [핵심 로직] 캐릭터의 아이템 레벨과 레이드 마스터 데이터를 받아,
+# 레이드 그룹별로 캐릭터 레벨이 충족하는 가장 높은 레벨의 레이드만 추출
+def get_character_available_raids(char_level):
   raw_raids = st.session_state.raid_masters
   if not raw_raids:
     return []
+
   df = pd.DataFrame(raw_raids)
-  idx = df.groupby("raid_group")["req_level"].idxmax()
-  highest_df = df.loc[idx].sort_values(by="req_level", ascending=True)
+  # 1. 캐릭터 레벨 이하인 레이드들만 필터링
+  df_filtered = df[df["req_level"] <= float(char_level)]
+  if df_filtered.empty:
+    return []
+
+  # 2. 남은 레이드 중에서 raid_group별로 req_level이 가장 높은 행 추출
+  idx = df_filtered.groupby("raid_group")["req_level"].idxmax()
+  highest_df = df_filtered.loc[idx].sort_values(by="req_level", ascending=True)
   return highest_df["name"].tolist()
 
-
-available_raids = get_highest_raids()
 
 # 4. 상단 헤더 영역
 st.markdown(
@@ -96,6 +102,15 @@ avg_level = (
     else 0
 )
 
+# 전체 가능한 최대 레이드 개수 계산 (통계용)
+total_max_possible_raids = 0
+for c in chars:
+  total_max_possible_raids += len(
+      get_character_available_raids(c.get("item_level", 0))
+  )
+
+total_completed_count = sum(len(c.get("completed_raids", [])) for c in chars)
+
 # 상단 통계 바
 col_stat1, col_stat2, col_stat3, col_btn1, col_btn2 = st.columns(
     [1, 1, 1, 1.2, 1.2]
@@ -109,15 +124,11 @@ with col_stat1:
       unsafe_allow_html=True,
   )
 with col_stat2:
-  completed_total_count = sum(
-      len(c.get("completed_raids", [])) for c in chars
-  )
-  max_possible_raids = total_chars * len(available_raids)
   st.markdown(
       f"<div class='stat-container'><div class='stat-label'>주간 콘텐츠"
       f" 완료</div><div class='stat-value'"
-      f" style='color:#10b981;'>{completed_total_count} /"
-      f" {max_possible_raids}</div></div>",
+      f" style='color:#10b981;'>{total_completed_count} /"
+      f" {total_max_possible_raids}</div></div>",
       unsafe_allow_html=True,
   )
 with col_stat3:
@@ -141,12 +152,10 @@ with col_btn2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 5. 소유주 지정 순서 정렬 탭
+# 5. 소유주 지정 순서 정렬 탭 (전체 - 아리 - 델리 - 청이 - 우니 - 신효 - 길치)
 custom_order = ["전체", "아리", "델리", "청이", "우니", "신효", "길치"]
 db_owners = list(set(c.get("owner", "기타") for c in chars))
 
-# 지정된 순서에 포함되어 있으면서 실제 DB에 존재하는 소유주들만 추출하고,
-# 지정 순서에 없는 새로운 소유주가 있다면 뒤에 추가합니다.
 owners = [o for o in custom_order if o == "전체" or o in db_owners]
 for o in db_owners:
   if o not in owners:
@@ -177,12 +186,15 @@ else:
       owner = char.get("owner", "")
       name = char.get("name", "")
       class_name = char.get("class_name", "미지정")
-      item_level = char.get("item_level", 0)
+      item_level = float(char.get("item_level", 0) or 0)
       combat_power = char.get("combat_power", "-")
       title = char.get("title", "")
       gem_summary = char.get("gem_summary", "-")
       char_image = char.get("character_image", "")
       completed_raids = char.get("completed_raids", []) or []
+
+      # 💡 해당 캐릭터의 레벨에 맞는 레이드 목록 계산
+      char_available_raids = get_character_available_raids(item_level)
 
       with st.container():
         st.markdown(f'<div class="card">', unsafe_allow_html=True)
@@ -229,7 +241,7 @@ else:
         )
 
         completed_count = len(
-            [r for r in completed_raids if r in available_raids]
+            [r for r in completed_raids if r in char_available_raids]
         )
         st.markdown(
             f"<div style='display: flex; justify-content: space-between;"
@@ -237,17 +249,21 @@ else:
             f" style='font-size: 0.8rem; color: #94a3b8;'>주간 레이드 클리어"
             f" 현황</span><span style='font-size: 0.8rem; color: #10b981;"
             f" font-weight: 700;'>{completed_count} /"
-            f" {len(available_raids)} 클리어</span></div>",
+            f" {len(char_available_raids)} 클리어</span></div>",
             unsafe_allow_html=True,
         )
 
-        if not available_raids:
-          st.info("raid_master 테이블에 등록된 레이드가 없습니다.")
+        if not char_available_raids:
+          st.markdown(
+              "<div style='font-size: 0.8rem; color: #64748b; padding: 8px 0;'>입장"
+              " 가능한 레이드가 없습니다.</div>",
+              unsafe_allow_html=True,
+          )
         else:
-          r_cols = st.columns(len(available_raids))
+          r_cols = st.columns(len(char_available_raids))
           new_completed = list(completed_raids)
 
-          for r_idx, raid_name in enumerate(available_raids):
+          for r_idx, raid_name in enumerate(char_available_raids):
             with r_cols[r_idx]:
               is_checked = raid_name in completed_raids
               checked_state = st.checkbox(
