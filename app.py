@@ -5,9 +5,9 @@ from supabase import create_client, Client
 st.set_page_config(page_title="LOA RAID - 원정대 관리", page_icon="🛡️", layout="wide")
 
 # Streamlit Secrets에서 안전하게 키 불러오기
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-LOA_API_KEY = st.secrets["LOA_API_KEY"]
+SUPABASE_URL = st.secrets["https://ozlduwxchiyuqmlztokh.supabase.co/rest/v1/"]
+SUPABASE_KEY = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96bGR1d3hjaGl5dXFtbHp0b2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDAzNDQsImV4cCI6MjEwMjM3NjM0NH0.wbtL7PwyPD8xftkjf2fXedUZen6TTpp_-dS9dv7YF1Y"]
+LOA_API_KEY = st.secrets["eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyIsImtpZCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyJ9.eyJpc3MiOiJodHRwczovL2x1ZHkuZ2FtZS5vbnN0b3ZlLmNvbSIsImF1ZCI6Imh0dHBzOi8vbHVkeS5nYW1lLm9uc3RvdmUuY29tL3Jlc291cmNlcyIsImNsaWVudF9pZCI6IjEwMDAwMDAwMDAyNjkxMDEifQ.iqTLy__xkR6NUTtjxVojqdH911erUPV_vxF5PVIKcyRq_xR0bxwI4dsSyXaUaWvSMzf37wY1YM4cJdaH7yzje-kmA4kZNbxs5OlZhozINy0Y_McL7RFgA5KIeZ8YNzJmcvKPsa7QbA_sT7VMUXtWqPenMLjDtrVMAzs6B2jq-9Ooqz_grJCBhm2G8Ra8WHrRFsYk_f__Nwkz2Qo0rfHfo3_Whxm6hHw8bXxONtmDeAkA4G-Kf1nOcg8fkyAp3APBO6zcbaBDh4MutvtanDOJ1U_Af1CbUYGYwrbB3KVgydxv7PyeUuVAR99mPbbUZ8CWmv5JgW1ixxHMyTkYQdYWAQ"]
 
 @st.cache_resource
 def init_supabase() -> Client:
