@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# 2. 커스텀 CSS 적용
+# 2. 커스텀 CSS 적용 (버튼 상태 디자인 스타일 추가)
 st.markdown(
     """
     <style>
@@ -98,7 +98,7 @@ st.markdown("---")
 
 chars = st.session_state.characters
 
-# 5. 소유주 지정 순서 정렬 탭 먼저 정의 (통계에서도 선택된 소유주를 알아야 하므로 위로 배치)
+# 5. 소유주 지정 순서 정렬 탭
 custom_order = ["전체", "아리", "델리", "청이", "우니", "신효", "길치"]
 db_owners = list(set(c.get("owner", "기타") for c in chars))
 
@@ -111,14 +111,13 @@ selected_owner = st.radio(
     "소유주 선택", owners, horizontal=True, label_visibility="collapsed"
 )
 
-# 💡 선택된 소유주에 따른 필터링된 캐릭터 목록 추출
 filtered_chars = (
     chars
     if selected_owner == "전체"
     else [c for c in chars if c.get("owner") == selected_owner]
 )
 
-# 💡 통계 계산 (선택된 소유주 대상)
+# 💡 통계 계산
 total_chars = len(filtered_chars)
 avg_level = (
     sum(float(c.get("item_level", 0) or 0) for c in filtered_chars)
@@ -207,63 +206,39 @@ else:
         with st.container():
           st.markdown(f'<div class="card">', unsafe_allow_html=True)
 
-          move_col1, title_col, move_col2 = st.columns([1, 4, 1])
-          current_absolute_idx = chars.index(char)
-
-          with move_col1:
-            if current_absolute_idx > 0:
-              if st.button("◀", key=f"move_left_{char_id}", help="앞으로 이동"):
-                prev_char = chars[current_absolute_idx - 1]
-                chars[current_absolute_idx]["order_idx"], prev_char[
-                    "order_idx"
-                ] = (
-                    prev_char.get("order_idx", current_absolute_idx - 1),
-                    chars[current_absolute_idx].get(
-                        "order_idx", current_absolute_idx
-                    ),
-                )
-                try:
-                  supabase.table("characters").update(
-                      {"order_idx": chars[current_absolute_idx]["order_idx"]}
-                  ).eq("id", char_id).execute()
-                  supabase.table("characters").update(
-                      {"order_idx": prev_char["order_idx"]}
-                  ).eq("id", prev_char["id"]).execute()
-                  st.session_state.characters = fetch_characters()
-                  st.rerun()
-                except Exception as e:
-                  st.error(f"순서 변경 실패: {e}")
-
-          with title_col:
+          # 순번 선택 셀렉트박스 영역
+          order_col1, order_col2 = st.columns([2.5, 1])
+          with order_col1:
             st.markdown(
-                f"<div style='font-size: 0.75rem; color: #fbbf24; font-weight:"
-                f" 700; text-align: center;'>{owner}</div>",
+                f"<div style='font-size: 0.8rem; color: #fbbf24; font-weight:"
+                f" 700; padding-top: 6px;'>{owner}</div>",
                 unsafe_allow_html=True,
             )
+          with order_col2:
+            current_pos = chars.index(char) + 1
+            new_pos = st.selectbox(
+                "순번",
+                options=list(range(1, len(chars) + 1)),
+                index=current_pos - 1,
+                key=f"pos_{char_id}",
+                label_visibility="collapsed",
+            )
 
-          with move_col2:
-            if current_absolute_idx < len(chars) - 1:
-              if st.button("▶", key=f"move_right_{char_id}", help="뒤로 이동"):
-                next_char = chars[current_absolute_idx + 1]
-                chars[current_absolute_idx]["order_idx"], next_char[
-                    "order_idx"
-                ] = (
-                    next_char.get("order_idx", current_absolute_idx + 1),
-                    chars[current_absolute_idx].get(
-                        "order_idx", current_absolute_idx
-                    ),
-                )
-                try:
+            if new_pos != current_pos:
+              target_idx = new_pos - 1
+              moved_char = chars.pop(current_pos - 1)
+              chars.insert(target_idx, moved_char)
+
+              try:
+                for new_idx, c in enumerate(chars):
+                  c["order_idx"] = new_idx
                   supabase.table("characters").update(
-                      {"order_idx": chars[current_absolute_idx]["order_idx"]}
-                  ).eq("id", char_id).execute()
-                  supabase.table("characters").update(
-                      {"order_idx": next_char["order_idx"]}
-                  ).eq("id", next_char["id"]).execute()
-                  st.session_state.characters = fetch_characters()
-                  st.rerun()
-                except Exception as e:
-                  st.error(f"순서 변경 실패: {e}")
+                      {"order_idx": new_idx}
+                  ).eq("id", c["id"]).execute()
+                st.session_state.characters = chars
+                st.rerun()
+              except Exception as e:
+                st.error(f"순서 변경 실패: {e}")
 
           img_col, info_col = st.columns([1, 2])
 
@@ -325,30 +300,36 @@ else:
                 unsafe_allow_html=True,
             )
           else:
+            # 💡 체크박스 대신 글씨(레이드 이름) 자체를 버튼형태로 나열하여 클릭시 토글되도록 구현
             r_cols = st.columns(len(char_available_raids))
             new_completed = list(completed_raids)
 
             for r_idx, raid_name in enumerate(char_available_raids):
               with r_cols[r_idx]:
-                is_checked = raid_name in completed_raids
-                checked_state = st.checkbox(
-                    raid_name, value=is_checked, key=f"raid_{char_id}_{r_idx}"
+                is_completed = raid_name in completed_raids
+                # 완료된 레이드면 초록빛 계열, 미완료면 기본 스타일로 버튼 텍스트 표현
+                button_label = (
+                    f"✅ {raid_name}" if is_completed else f"⬜ {raid_name}"
                 )
 
-                if checked_state and raid_name not in new_completed:
-                  new_completed.append(raid_name)
-                elif not checked_state and raid_name in new_completed:
-                  new_completed.remove(raid_name)
+                if st.button(
+                    button_label,
+                    key=f"raid_btn_{char_id}_{r_idx}",
+                    use_container_width=True,
+                ):
+                  if is_completed:
+                    new_completed.remove(raid_name)
+                  else:
+                    new_completed.append(raid_name)
 
-            if set(new_completed) != set(completed_raids):
-              try:
-                supabase.table("characters").update(
-                    {"completed_raids": new_completed}
-                ).eq("id", char_id).execute()
-                st.session_state.characters = fetch_characters()
-                st.rerun()
-              except Exception as e:
-                st.error(f"업데이트 실패: {e}")
+                  try:
+                    supabase.table("characters").update(
+                        {"completed_raids": new_completed}
+                    ).eq("id", char_id).execute()
+                    st.session_state.characters = fetch_characters()
+                    st.rerun()
+                  except Exception as e:
+                    st.error(f"업데이트 실패: {e}")
 
           st.markdown(
               "<div style='margin-top: 8px;'></div>", unsafe_allow_html=True
