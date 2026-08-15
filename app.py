@@ -448,7 +448,9 @@ else:
 
             for r_idx, raid_info in enumerate(char_available_raids):
               raid_name = raid_info["name"]
-              raid_group = raid_info["group"]  # 난이도/그룹
+              raid_group = raid_info.get(
+                  "raid_group", raid_info.get("group", "일반")
+              )  # 수정된 부분
               is_completed = raid_name in completed_raids
 
               button_label = f"{raid_name}\n{raid_group}"
