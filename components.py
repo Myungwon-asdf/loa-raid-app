@@ -1,7 +1,7 @@
-import streamlit as st
+import streamlit as str_module
 
 def apply_custom_styles():
-    st.markdown("""
+    str_module.markdown("""
         <style>
         :root {
           --bg-dark: #080b11;
@@ -14,6 +14,7 @@ def apply_custom_styles():
           --accent-blue: #2563eb;
         }
         .stApp { background-color: var(--bg-dark); color: #f1f5f9; }
+        
         .header-stats {
           display: flex; align-items: center; background-color: #0d121f;
           border: 1px solid var(--border-color); border-radius: 10px;
@@ -22,6 +23,7 @@ def apply_custom_styles():
         .stat-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
         .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
         .stat-value { font-size: 1.1rem; font-weight: 800; }
+        
         .character-card {
           background-color: var(--card-bg); border: 1px solid var(--border-color);
           border-radius: 12px; padding: 16px; margin-bottom: 16px;
@@ -40,7 +42,7 @@ def apply_custom_styles():
 
 def render_top_header(char_count, completed_raids, total_raids, avg_level):
     clear_percent = round((completed_raids / total_raids * 100) if total_raids > 0 else 0)
-    st.markdown(f"""
+    str_module.markdown(f"""
         <div class="header-stats">
           <div class="stat-item">
             <span class="stat-label">등록 캐릭터</span>
