@@ -1,7 +1,6 @@
 import streamlit as st
 
 def apply_custom_styles():
-    """HTML의 `:root` 스타일 및 다크모드/카드 UI를 Streamlit용 CSS로 적용합니다."""
     st.markdown("""
         <style>
         :root {
@@ -14,77 +13,33 @@ def apply_custom_styles():
           --accent-green: #10b981;
           --accent-blue: #2563eb;
         }
-
-        .stApp {
-          background-color: var(--bg-dark);
-          color: #f1f5f9;
-        }
-
+        .stApp { background-color: var(--bg-dark); color: #f1f5f9; }
         .header-stats {
-          display: flex;
-          align-items: center;
-          background-color: #0d121f;
-          border: 1px solid var(--border-color);
-          border-radius: 10px;
-          padding: 12px 20px;
-          gap: 24px;
-          margin-bottom: 20px;
+          display: flex; align-items: center; background-color: #0d121f;
+          border: 1px solid var(--border-color); border-radius: 10px;
+          padding: 12px 20px; gap: 24px; margin-bottom: 20px;
         }
-        .stat-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          flex: 1;
-        }
-        .stat-label {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          margin-bottom: 2px;
-        }
-        .stat-value {
-          font-size: 1.1rem;
-          font-weight: 800;
-        }
-
+        .stat-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
+        .stat-value { font-size: 1.1rem; font-weight: 800; }
         .character-card {
-          background-color: var(--card-bg);
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          padding: 16px;
-          margin-bottom: 16px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+          background-color: var(--card-bg); border: 1px solid var(--border-color);
+          border-radius: 12px; padding: 16px; margin-bottom: 16px;
         }
-        
         .gem-box {
-          background-color: var(--inner-bg);
-          border: 1px solid #141c2e;
-          border-radius: 8px;
-          padding: 8px 12px;
-          margin-top: 10px;
-          margin-bottom: 10px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.8rem;
+          background-color: var(--inner-bg); border: 1px solid #141c2e;
+          border-radius: 8px; padding: 8px 12px; margin-top: 10px; margin-bottom: 10px;
+          display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;
         }
-        
         .owner-badge {
-          font-size: 0.7rem;
-          font-weight: 700;
-          background-color: #1e293b;
-          color: #94a3b8;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-right: 6px;
+          font-size: 0.7rem; font-weight: 700; background-color: #1e293b;
+          color: #94a3b8; padding: 2px 6px; border-radius: 4px; margin-right: 6px;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def render_top_header(char_count, completed_raids, total_raids, avg_level):
-    """상단 통계 헤더 컴포넌트"""
     clear_percent = round((completed_raids / total_raids * 100) if total_raids > 0 else 0)
-    
     st.markdown(f"""
         <div class="header-stats">
           <div class="stat-item">
