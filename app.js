@@ -1,8 +1,3 @@
-// ============================================================
-// LOA RAID - Supabase 버전 (기존 GAS 로직을 동일한 UX로 재구현)
-// ============================================================
-
-// ⚠️ 1단계에서 복사해둔 값으로 교체하세요
 const SUPABASE_URL = "https://ozlduwxchiyuqmlztokh.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96bGR1d3hjaGl5dXFtbHp0b2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDAzNDQsImV4cCI6MjEwMjM3NjM0NH0.wbtL7PwyPD8xftkjf2fXedUZen6TTpp_-dS9dv7YF1Y";
 
