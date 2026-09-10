@@ -123,10 +123,10 @@ function renderStats() {
 }
 function raidMarkup(c) {
   const groups = raidGroups(raids,c.itemLevel);
-  return groups.map(group => `<div class="raid-group"><span class="raid-group-label">${h(group[0].group)}</span><div class="raid-tag-list">${group.map(r => {
-    const done = c.completedRaids.includes(r.id);
+  return '<div class="raid-tag-list">' + (groups.map(group => {
+    const r = group[0], done = group.some(r => c.completedRaids.includes(r.id));
     return `<button class="raid-tag-btn ${done ? 'active' : ''}" data-action="raid" data-id="${h(c.id)}" data-raid="${h(r.id)}" aria-pressed="${done}" ${!editable() || pending.has(c.id) || batchRunning ? 'disabled' : ''}>${done ? '✓ ' : ''}${h(r.name)}</button>`;
-  }).join('')}</div></div>`).join('') || '<span class="text-secondary">입장 가능한 레이드 없음</span>';
+  }).join('') || '<span class="text-secondary">입장 가능한 레이드 없음</span>') + '</div>';
 }
 function renderDashboard() {
   const list = visibleCharacters();
@@ -142,10 +142,9 @@ function renderDashboard() {
           </div>
         </div>
         <div class="card-bottom-section"><div class="gem-box"><span class="gem-title">💎 보석</span><span class="gem-detail">${h(c.gemSummary)}</span></div>
-          <div class="raid-section-head"><span class="raid-section-title">주간 레이드 · 난이도별 선택</span><span class="raid-status-count">${p.done} / ${p.total}</span></div>
+          <div class="raid-section-head"><span class="raid-section-title">주간 레이드</span><span class="raid-status-count">${p.done} / ${p.total}</span></div>
           ${raidMarkup(c)}
-          <div class="sync-age" title="${h(c.apiSyncedAt || '')}">${busy ? '저장 중…' : h(formatSyncedAt(c.apiSyncedAt))}</div>
-          <div class="card-footer-actions"><button class="btn-card-icon" data-action="move-up" data-id="${h(c.id)}" ${disabled || owner === 'ALL' ? 'disabled' : ''} aria-label="${h(c.name)} 위로 이동">↑</button>
+          <div class="card-footer-actions"><span class="sync-age" title="${h(c.apiSyncedAt || '')}">${busy ? '저장 중…' : h(formatSyncedAt(c.apiSyncedAt))}</span><button class="btn-card-icon" data-action="move-up" data-id="${h(c.id)}" ${disabled || owner === 'ALL' ? 'disabled' : ''} aria-label="${h(c.name)} 위로 이동">↑</button>
             <button class="btn-card-icon" data-action="move-down" data-id="${h(c.id)}" ${disabled || owner === 'ALL' ? 'disabled' : ''} aria-label="${h(c.name)} 아래로 이동">↓</button>
             <button class="btn-card-icon" data-action="refresh" data-id="${h(c.id)}" ${disabled ? 'disabled' : ''}>🔄 갱신</button>
             <button class="btn-card-icon" data-action="delete" data-id="${h(c.id)}" ${disabled ? 'disabled' : ''}>삭제</button></div>
@@ -174,7 +173,10 @@ function switchView(next) {
 function filterByOwner(next) { owner = next; try { localStorage.setItem('loa-owner',owner); } catch {} render(); }
 async function toggleRaid(id, raidId) {
   const c = characters.find(c => c.id === id); if (!c) return;
-  await mutate(id, async () => { const row = await rpc('loa_set_raid',{p_character_id:id,p_raid_id:raidId,p_done:!c.completedRaids.includes(raidId),p_week:currentWeek}); upsertCharacter(row); });
+  const group = raidGroups(raids,c.itemLevel).find(group => group[0].id === raidId);
+  if (!group) return;
+  const completed = group.find(r => c.completedRaids.includes(r.id));
+  await mutate(id, async () => { const row = await rpc('loa_set_raid',{p_character_id:id,p_raid_id:completed?.id || raidId,p_done:!completed,p_week:currentWeek}); upsertCharacter(row); });
 }
 async function resetWeeklyRaids() {
   if (!requireEditable() || owner === 'ALL') { notice('초기화할 소유자 탭을 선택해주세요.',true); return; }

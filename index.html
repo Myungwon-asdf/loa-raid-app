@@ -200,7 +200,7 @@
       border-radius: 12px;
       padding: 0;
       overflow: hidden;
-      height: 100%;
+      height: auto;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -300,20 +300,23 @@
     #weekHelp, #scopeLabel, .sync-age, #connectionState { font-size:.8rem; color:#a8b5c9; }
     .status-message { color:#a7f3d0; margin:8px 0 16px; min-height:24px; overflow-wrap:anywhere; }
     .status-error { color:#fda4af; }
-    .raid-group { margin:10px 0; }
-    .raid-group-label { display:block; color:#cbd5e1; font-size:.75rem; margin-bottom:5px; }
     .raid-tag-btn { color:#bdc9db; min-height:36px; }
     .raid-tag-btn:disabled, button:disabled { opacity:.55; cursor:not-allowed; }
     .btn-card-icon { min-width:36px; min-height:36px; color:#a8b5c9; justify-content:center; }
-    .sync-age { margin-top:12px; }
+    .sync-age { margin-right:auto; font-size:.7rem; }
     .raid-section-title, .stat-label, .brand-subtitle { color:#a8b5c9; }
     .filter-bar { flex-wrap:wrap; gap:12px; }
     .gem-box { gap:10px; align-items:flex-start; }
     .gem-detail { text-align:right; overflow-wrap:anywhere; }
     .empty-state { text-align:center; padding:48px 16px; color:#a8b5c9; }
-    .card-top-section { min-height:160px; }
-    .char-profile-img { aspect-ratio:3/4; max-height:180px; }
-    .card-footer-actions { flex-wrap:wrap; }
+    .card-top-section { height:136px; }
+    .char-profile-box { width:96px; min-width:96px; }
+    .char-profile-img { height:120px; object-fit:contain; }
+    .card-info-wrapper { padding:10px 12px; }
+    .card-bottom-section { padding:0 12px 8px; }
+    .gem-box { margin-top:4px; padding:5px 8px; }
+    .raid-section-head { margin-top:10px; margin-bottom:6px; }
+    .card-footer-actions { flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; padding-top:0; }
     button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #fbbf24; outline-offset:3px; }
     @media(max-width:1100px) { .top-header { flex-wrap:wrap; gap:16px; } .nav-section { flex-wrap:wrap; gap:12px; } }
     @media(max-width:600px) {
