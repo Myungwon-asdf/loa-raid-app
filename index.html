@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LOA RAID - 원정대 캐릭터 및 주간 레이드 관리</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -293,6 +294,45 @@
     .char-chip.done { background-color: #064e3b; color: #34d399; border-color: #059669; }
     .char-chip.todo { background-color: #0f172a; color: #cbd5e1; border-color: #334155; }
     .char-chip-img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+    .workspace-status { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; margin-bottom:16px; }
+    .workspace-status label { display:flex; gap:8px; align-items:center; }
+    .workspace-status select { background:#172136; color:#f1f5f9; border:1px solid #475569; border-radius:8px; padding:8px; }
+    #weekHelp, #scopeLabel, .sync-age, #connectionState { font-size:.8rem; color:#a8b5c9; }
+    .status-message { color:#a7f3d0; margin:8px 0 16px; min-height:24px; overflow-wrap:anywhere; }
+    .status-error { color:#fda4af; }
+    .raid-group { margin:10px 0; }
+    .raid-group-label { display:block; color:#cbd5e1; font-size:.75rem; margin-bottom:5px; }
+    .raid-tag-btn { color:#bdc9db; min-height:36px; }
+    .raid-tag-btn:disabled, button:disabled { opacity:.55; cursor:not-allowed; }
+    .btn-card-icon { min-width:36px; min-height:36px; color:#a8b5c9; justify-content:center; }
+    .sync-age { margin-top:12px; }
+    .raid-section-title, .stat-label, .brand-subtitle { color:#a8b5c9; }
+    .filter-bar { flex-wrap:wrap; gap:12px; }
+    .gem-box { gap:10px; align-items:flex-start; }
+    .gem-detail { text-align:right; overflow-wrap:anywhere; }
+    .empty-state { text-align:center; padding:48px 16px; color:#a8b5c9; }
+    .card-top-section { min-height:160px; }
+    .char-profile-img { aspect-ratio:3/4; max-height:180px; }
+    .card-footer-actions { flex-wrap:wrap; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #fbbf24; outline-offset:3px; }
+    @media(max-width:1100px) { .top-header { flex-wrap:wrap; gap:16px; } .nav-section { flex-wrap:wrap; gap:12px; } }
+    @media(max-width:600px) {
+      body { padding:16px 12px; }
+      .header-stats { width:100%; justify-content:space-between; gap:8px; padding:10px 12px; }
+      .header-actions { width:100%; flex-wrap:wrap; gap:6px !important; }
+      .btn-header-action { min-height:44px; padding:7px 10px; font-size:.75rem; }
+      .owner-tabs { flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding-bottom:8px; }
+      .owner-tabs .nav-link { white-space:nowrap; min-height:44px; }
+      .sub-tools { width:100%; display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:3px; }
+      .btn-sub-tool, .btn-add-char-orange { min-height:44px; font-size:.72rem; padding:5px 4px; }
+      .search-input-wrapper { width:100%; }
+      .search-input { min-height:44px; }
+      .raid-tag-btn { min-height:44px; }
+      .char-profile-box { width:88px; min-width:88px; }
+      .card-info-wrapper { padding:12px; }
+      .schedule-title { flex-wrap:wrap; font-size:1rem; }
+      #loadingOverlay { font-size:1.1rem; padding:24px; text-align:center; }
+    }
   </style>
 </head>
 <body>
@@ -304,7 +344,7 @@
 
   <div class="top-header">
     <div class="d-flex align-items-center gap-3">
-      <img src="https://lh3.googleusercontent.com/d/1ssudEtNEewzfpkEhQPRwjf2Z9VOPI2_i" alt="로고" class="brand-logo" onerror="this.src='https://via.placeholder.com/42'">
+      <img src="logo.png" alt="로고" class="brand-logo">
       <div>
         <div class="brand-title">LOA RAID</div>
         <div class="brand-subtitle">원정대 캐릭터 및 주간 레이드 관리 시스템</div>
@@ -326,10 +366,10 @@
       </div>
     </div>
 
-    <div class="d-flex gap-2">
-      <button class="btn-header-action btn-api-refresh" onclick="refreshApiData()" id="refreshBtn">🔄 API 최신화</button>
-      <button class="btn-header-action btn-weekly-reset" onclick="resetWeeklyRaids()">🧹 주간 초기화</button>
-      <button class="btn-header-action btn-icon-only" onclick="openRaidManageModal()" title="레이드 관리">⚙️</button>
+    <div class="d-flex gap-2 header-actions">
+      <button class="btn-header-action btn-api-refresh" onclick="refreshApiData()" id="refreshBtn" data-live-only disabled>🔄 원정대 오래된 정보 갱신</button>
+      <button class="btn-header-action btn-weekly-reset" onclick="resetWeeklyRaids()" data-live-only disabled>🧹 이번 주 체크 해제</button>
+      <button class="btn-header-action btn-icon-only" onclick="openRaidManageModal()" title="레이드 관리" aria-label="레이드 관리" data-live-only disabled>⚙️</button>
     </div>
   </div>
 
@@ -339,15 +379,24 @@
     <div class="sub-tools">
       <button class="btn-sub-tool active" id="btnTabChars" onclick="switchView('CHARS')">👥 캐릭터 현황</button>
       <button class="btn-sub-tool" id="btnTabSchedule" onclick="switchView('SCHEDULE')">📋 남은 레이드 요약</button>
-      <button class="btn-add-char-orange" onclick="openAddCharacterModal()">+ 캐릭터 추가</button>
+      <button class="btn-add-char-orange" onclick="openAddCharacterModal()" data-live-only disabled>+ 캐릭터 추가</button>
     </div>
   </div>
 
+  <div class="workspace-status">
+    <label for="weekSelect">주간 기록 <select id="weekSelect" aria-label="조회할 주차"></select></label>
+    <span id="weekHelp"></span><span id="connectionState">○ 연결 중</span>
+    <button class="btn btn-sm btn-outline-light" onclick="loadDashboardData()">다시 불러오기</button>
+    <button class="btn btn-sm btn-outline-warning" id="retryRefresh" hidden>실패한 캐릭터 재시도</button>
+  </div>
+  <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
   <div class="filter-bar" id="filterBarView">
     <div class="search-input-wrapper">
       <span class="search-icon">🔍</span>
-      <input type="text" class="search-input" id="searchInput" placeholder="캐릭터명 / 직업 검색..." oninput="renderDashboard()">
+      <input type="search" class="search-input" id="searchInput" aria-label="캐릭터명 또는 직업 검색" placeholder="캐릭터명 / 직업 검색..." oninput="renderDashboard()">
     </div>
+    <label><input type="checkbox" id="hideCompleted"> 완료한 캐릭터 숨기기</label>
+    <span id="scopeLabel"></span>
   </div>
 
   <div class="row g-3" id="characterGrid">
@@ -367,13 +416,14 @@
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">소유자</label>
-            <input type="text" class="form-control bg-secondary text-white border-0" id="newOwner" placeholder="예: 아리">
+            <label class="form-label" for="newOwner">소유자</label>
+            <input type="text" class="form-control bg-secondary text-white border-0" id="newOwner" list="ownerOptions" maxlength="40" placeholder="소유자 선택 또는 입력">
+            <datalist id="ownerOptions"></datalist>
           </div>
           <div class="mb-3">
-            <label class="form-label">캐릭터명</label>
+            <label class="form-label" for="newCharName">캐릭터명</label>
             <div class="input-group">
-              <input type="text" class="form-control bg-secondary text-white border-0" id="newCharName" placeholder="캐릭터명 입력">
+              <input type="text" class="form-control bg-secondary text-white border-0" id="newCharName" maxlength="32" placeholder="캐릭터명 입력">
               <button class="btn btn-outline-warning" type="button" onclick="checkApiForNewChar()">API 자동조회</button>
             </div>
           </div>
@@ -381,7 +431,7 @@
         </div>
         <div class="modal-footer border-secondary">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-          <button type="button" class="btn btn-warning" onclick="submitNewCharacter()">추가하기</button>
+          <button type="button" class="btn btn-warning" id="submitCharacter" onclick="submitNewCharacter()" disabled>조회한 캐릭터 추가</button>
         </div>
       </div>
     </div>
@@ -406,7 +456,7 @@
               <input type="number" class="form-control bg-secondary text-white border-0" id="newRaidLevel" placeholder="입장 레벨">
             </div>
             <div class="col-md-2">
-              <button class="btn btn-warning w-100" onclick="addNewRaidMaster()">추가</button>
+              <button class="btn btn-warning w-100" onclick="addNewRaidMaster()" data-live-only>추가</button>
             </div>
           </div>
           <div class="table-responsive">
@@ -431,6 +481,6 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

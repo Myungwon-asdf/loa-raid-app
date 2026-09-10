@@ -1,0 +1,10 @@
+{
+  "name": "loa-raid-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "dev": "node scripts/dev-server.js"
+  },
+  "engines": { "node": "24.x" }
+}

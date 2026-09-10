@@ -1,0 +1,7 @@
+node_modules/
+.env*
+!.env.example
+.vercel/
+supabase/.temp/
+test-results/
+public/
