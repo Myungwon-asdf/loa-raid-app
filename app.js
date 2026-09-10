@@ -56,13 +56,11 @@ async function loadDashboardData() {
       currentWeek = data.current_week; selectedWeek = data.selected_week; ready = true;
       const available = owners();
       if (owner !== 'ALL' && !available.includes(owner)) owner = available[0] || 'ALL';
-      $('weekSelect').innerHTML = data.weeks.map(w => `<option value="${h(w)}" ${w === selectedWeek ? 'selected' : ''}>${h(w)} 주${w === currentWeek ? ' · 이번 주' : ' · 기록'}</option>`).join('');
-      $('weekHelp').textContent = editable() ? '매주 수요일 06:00 (한국 시간)에 새 주차로 전환됩니다.' : '지난주 기록입니다. 수정은 이번 주에서 할 수 있습니다.';
       render();
       if (first) notice('데이터를 불러왔습니다.');
     } catch (e) {
-      notice(`불러오기 실패: ${e.message || '통신 오류'}. 다시 불러오기를 눌러주세요.`, true);
-      if (!ready) $('characterGrid').innerHTML = '<div class="col-12 empty-state">데이터를 불러오지 못했습니다. 상단의 다시 불러오기로 재시도할 수 있습니다.</div>';
+      notice(`불러오기 실패: ${e.message || '통신 오류'}. 페이지를 새로고침해주세요.`, true);
+      if (!ready) $('characterGrid').innerHTML = '<div class="col-12 empty-state">데이터를 불러오지 못했습니다. 페이지를 새로고침해주세요.</div>';
     } finally {
       $('loadingOverlay').style.display = 'none';
     }
@@ -81,7 +79,6 @@ function subscribeRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'characters'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'raid_master'},scheduleReload)
     .subscribe(status => {
-      $('connectionState').textContent = status === 'SUBSCRIBED' ? '● 실시간 연결됨' : '○ 연결 확인 중';
       if (status === 'SUBSCRIBED') scheduleReload();
     });
 }
@@ -103,7 +100,6 @@ function render() {
   if (view === 'CHARS') renderDashboard(); else renderScheduleView();
   if (raidModal) renderRaidManageTable();
   document.querySelectorAll('[data-live-only]').forEach(button => { button.disabled = !editable() || batchRunning || pending.size > 0; });
-  $('weekSelect').disabled = batchRunning || pending.size > 0;
   $('submitCharacter').disabled = !editable() || pending.has('add') || !previewName || previewName !== $('newCharName').value.trim();
   $('refreshBtn').textContent = owner === 'ALL' ? '🔄 전체 갱신' : '🔄 원정대 갱신';
   $('refreshBtn').title = '1시간이 지난 정보만 갱신합니다. 카드의 갱신 버튼으로 개별 갱신할 수 있습니다.';
@@ -281,11 +277,10 @@ $('characterGrid').addEventListener('dragend',()=>{draggedId=null;});
 $('characterGrid').addEventListener('error',e=>{if(e.target.tagName==='IMG') e.target.hidden=true;},true);
 $('newCharName').addEventListener('input',invalidatePreview);
 $('addCharacterModal').addEventListener('hidden.bs.modal',invalidatePreview);
-$('weekSelect').addEventListener('change',()=>{requestedWeek=$('weekSelect').value===currentWeek?null:$('weekSelect').value; generation++; void loadDashboardData();});
 $('hideCompleted').addEventListener('change',render);
 $('retryRefresh').addEventListener('click',()=>void refreshApiData(true));
 window.addEventListener('online',()=>{notice('다시 연결되었습니다.');scheduleReload();});
-window.addEventListener('offline',()=>{$('connectionState').textContent='○ 오프라인';notice('인터넷 연결이 끊겼습니다. 저장하려면 다시 연결해주세요.',true);});
+window.addEventListener('offline',()=>{notice('인터넷 연결이 끊겼습니다. 저장하려면 다시 연결해주세요.',true);});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden) scheduleReload();});
 // Reconcile missed events and cross a week boundary even when the tab stays open.
 setInterval(()=>{if(!document.hidden) scheduleReload();},60000);
