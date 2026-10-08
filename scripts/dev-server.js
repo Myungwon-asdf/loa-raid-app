@@ -15,7 +15,7 @@ const server=http.createServer(async(req,res)=>{
       res.status=s=>{res.statusCode=s;return res;};res.json=data=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));};
       await handler(req,res);return;
     }
-    const allowed=new Set(['/','/index.html','/app.js','/config.js','/lib/domain.js','/logo.png']);
+    const allowed=new Set(['/','/index.html','/app.js','/config.js','/lib/domain.js','/clear-detector.js','/logo.png']);
     if(fixtures) allowed.add('/tests/browser-fixture.js');
     if(!allowed.has(url.pathname)){res.writeHead(404);res.end();return;}
     const filename=path.join(root,url.pathname==='/'?'index.html':url.pathname.slice(1));

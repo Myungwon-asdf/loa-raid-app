@@ -286,5 +286,51 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden) scheduleR
 setInterval(()=>{if(!document.hidden) scheduleReload();},60000);
 window.addEventListener('pagehide',()=>{if(channel) void db.removeChannel(channel);channel=null;});
 window.addEventListener('pageshow',()=>subscribeRealtime());
+// ---- 자동 클리어 감지 연동 (clear-detector.js가 'loa:dungeon-clear' 이벤트를 발생시킴) ----
+let autoModal, autoOpen = false;
+function loadAuto() { try { return JSON.parse(localStorage.getItem('loa-auto') || '{}'); } catch { return {}; } }
+function saveAuto(v) { try { localStorage.setItem('loa-auto', JSON.stringify(v)); } catch {} }
+function autoGroup(c, key) { return raidGroups(raids, c.itemLevel).find(g => g[0].group === key); }
+function renderAutoCharacters() {
+  const key = $('autoRaid').value, saved = loadAuto();
+  const list = scopedCharacters().map(c => ({ c, group: autoGroup(c, key) })).filter(x => x.group);
+  $('autoChars').innerHTML = list.map(({ c, group }) => {
+    const done = group.some(r => c.completedRaids.includes(r.id));
+    const checked = !done && (saved.chars || []).includes(c.id);
+    return `<label class="d-flex align-items-center gap-2 mb-1"><input type="checkbox" class="form-check-input mt-0" value="${h(c.id)}" ${checked ? 'checked' : ''} ${done ? 'disabled' : ''}><span>${h(c.name)} <small class="text-secondary">${h(c.className)} · Lv.${c.itemLevel.toFixed(2)}</small>${done ? ' <span class="text-success">✓ 이미 완료</span>' : ''}</span></label>`;
+  }).join('') || '<div class="text-secondary">이 레이드에 입장 가능한 캐릭터가 없습니다.</div>';
+}
+function openAutoClear() {
+  if (!ready || autoOpen || !requireEditable()) return;
+  const keys = [...new Set(raids.map(r => r.group))];
+  if (!keys.length) return;
+  const saved = loadAuto();
+  $('autoRaid').innerHTML = keys.map(k => `<option value="${h(k)}">${h(k)}</option>`).join('');
+  if (keys.includes(saved.raid)) $('autoRaid').value = saved.raid;
+  renderAutoCharacters();
+  autoModal ||= new bootstrap.Modal($('autoClearModal'));
+  autoOpen = true; autoModal.show();
+}
+async function confirmAutoClear() {
+  const key = $('autoRaid').value;
+  const ids = [...$('autoChars').querySelectorAll('input:checked')].map(x => x.value);
+  saveAuto({ raid: key, chars: ids });
+  autoModal.hide();
+  let ok = 0, failed = 0;
+  for (const id of ids) {
+    const c = characters.find(c => c.id === id), group = c && autoGroup(c, key);
+    if (!group || group.some(r => c.completedRaids.includes(r.id))) continue;
+    const saved = await mutate(id, async () => {
+      upsertCharacter(await rpc('loa_set_raid', { p_character_id: id, p_raid_id: group[0].id, p_done: true, p_week: currentWeek }));
+    }, `${c.name} ${key} 클리어를 체크했습니다.`);
+    if (saved) ok++; else failed++;
+  }
+  if (!failed) notice(ok ? `${key} 클리어 ${ok}명을 체크했습니다.` : '새로 체크할 캐릭터가 없습니다.');
+}
+window.addEventListener('loa:dungeon-clear', openAutoClear);
+$('autoRaid').addEventListener('change', renderAutoCharacters);
+$('autoConfirm').addEventListener('click', () => void confirmAutoClear());
+$('autoClearModal').addEventListener('hidden.bs.modal', () => { autoOpen = false; });
+
 Object.assign(window,{loadDashboardData,switchView,renderDashboard:render,openAddCharacterModal,checkApiForNewChar,submitNewCharacter,resetWeeklyRaids,refreshApiData,openRaidManageModal,addNewRaidMaster});
 void loadDashboardData(); subscribeRealtime();
