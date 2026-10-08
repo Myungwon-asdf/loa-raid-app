@@ -1,5 +1,5 @@
 import { DATABASE_URL, ANON_KEY } from './config.js';
-import { createPartyReader, matchCharacters, matchRaidGroup } from './party-ocr.js';
+import { createPartyReader, matchCharacters, matchRaidGroup, similarity } from './party-ocr.js';
 import { escapeHtml as h, characterFromRow, raidGroups, progress, formatSyncedAt } from './lib/domain.js';
 
 const $ = id => document.getElementById(id);
@@ -289,7 +289,7 @@ window.addEventListener('pagehide',()=>{if(channel) void db.removeChannel(channe
 window.addEventListener('pageshow',()=>subscribeRealtime());
 // ---- 자동 클리어 감지 연동 (clear-detector.js가 'loa:dungeon-clear' 이벤트를 발생시킴) ----
 const partyReader = createPartyReader();
-let autoModal, autoOpen = false, autoBusy = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set(), lastAuto = null, undoTimer;
+let autoModal, autoOpen = false, autoBusy = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set(), lastAuto = null, undoTimer, autoRaidText = '';
 window.loaWarmOcr = () => { partyReader.warm().catch(() => {}); };
 function loadAuto() { try { return JSON.parse(localStorage.getItem('loa-auto') || '{}'); } catch { return {}; } }
 function saveAuto(v) { try { localStorage.setItem('loa-auto', JSON.stringify(v)); } catch {} }
@@ -309,17 +309,31 @@ function renderAutoCharacters() {
 }
 function fullAuto() { try { return localStorage.getItem('loa-auto-full') !== '0'; } catch { return true; } }
 function setBarStatus(text) { $('autoClearStatus').textContent = text; }
+// 레이드 제목 글자와 사용자가 직접 고른 레이드군을 기억해 두었다가 다음부터 자동으로 연결한다.
+function loadRaidMap() { try { return JSON.parse(localStorage.getItem('loa-raid-map') || '[]'); } catch { return []; } }
+function learnedRaid(text) {
+  const keys = new Set(raids.map(r => r.group));
+  const ranked = loadRaidMap().filter(e => keys.has(e.group)).map(e => ({ group: e.group, score: similarity(text, e.text) })).sort((a, b) => b.score - a.score);
+  return ranked.length && ranked[0].score >= 0.7 ? ranked[0].group : null;
+}
+function learnRaid(text, group) {
+  if (!text || text.length < 4) return;
+  const map = loadRaidMap().filter(e => similarity(text, e.text) < 0.9);
+  map.unshift({ text, group });
+  try { localStorage.setItem('loa-raid-map', JSON.stringify(map.slice(0, 30))); } catch {}
+}
 async function analyzeFrame(frame) {
   const { names, raidText } = await partyReader.read(frame);
-  return { names, matched: matchCharacters(names, characters), raidKey: matchRaidGroup(raidText, raids) };
+  return { names, raidText, matched: matchCharacters(names, characters), raidKey: learnedRaid(raidText) || matchRaidGroup(raidText, raids) };
 }
 function showRecognition(res) {
+  autoRaidText = res.raidText || '';
   if (res.raidKey) $('autoRaid').value = res.raidKey;
   if (res.matched.length) { autoDetected = new Set(res.matched.map(m => m.id)); autoChecked = new Set(autoDetected); }
   renderAutoCharacters();
   setOcrStatus(res.matched.length
     ? `인식된 캐릭터 ${res.matched.length}명: ${res.matched.map(m => m.name).join(', ')}${res.raidKey ? ' · ' + res.raidKey : ' · 레이드는 직접 선택해 주세요'} — 맞는지 확인해 주세요.`
-    : '캐릭터를 인식하지 못했어요. 직접 선택해 주세요.');
+    : `캐릭터를 인식하지 못했어요. 직접 선택해 주세요. (읽은 글자: ${res.names.join(' / ') || '없음'})`);
 }
 async function recognizeFrame(frame, seq) {
   if (!frame) { setOcrStatus('화면을 캡처하지 못했어요. 직접 선택해 주세요.'); return; }
@@ -338,7 +352,7 @@ function openAutoClear(e, recognized) {
   const saved = loadAuto();
   $('autoRaid').innerHTML = keys.map(k => `<option value="${h(k)}">${h(k)}</option>`).join('');
   if (keys.includes(saved.raid)) $('autoRaid').value = saved.raid;
-  autoChecked = new Set(saved.chars || []); autoDetected = new Set(); setOcrStatus('');
+  autoChecked = new Set(saved.chars || []); autoDetected = new Set(); autoRaidText = ''; setOcrStatus('');
   renderAutoCharacters();
   autoModal ||= new bootstrap.Modal($('autoClearModal'));
   autoOpen = true; autoModal.show();
@@ -380,6 +394,7 @@ async function confirmAutoClear() {
   const key = $('autoRaid').value;
   const ids = [...$('autoChars').querySelectorAll('input:checked')].map(x => x.value);
   saveAuto({ raid: key, chars: ids });
+  learnRaid(autoRaidText, key);
   autoSeq++; autoModal.hide();
   const applied = await applyClears(key, ids);
   rememberAuto(key, applied);
@@ -393,7 +408,10 @@ async function handleClear(e) {
   autoBusy = true; setBarStatus('🎯 클리어 감지 — 파티원 인식 중…');
   try {
     const res = await analyzeFrame(frame);
-    if (!res.raidKey || !res.matched.length) { setBarStatus('인식이 확실하지 않아 확인 창을 띄웠어요.'); openAutoClear(e, res); return; }
+    if (!res.raidKey || !res.matched.length) {
+      setBarStatus(!res.matched.length ? `캐릭터를 맞추지 못해 확인 창을 띄웠어요. (읽은 이름: ${res.names.join(' / ') || '없음'})` : `레이드를 확정하지 못해 확인 창을 띄웠어요. (읽은 제목: ${res.raidText || '없음'}) — 한 번 골라주시면 다음부터 기억해요.`);
+      openAutoClear(e, res); return;
+    }
     const applied = await applyClears(res.raidKey, res.matched.map(m => m.id));
     rememberAuto(res.raidKey, applied);
     const msg = applied.length
@@ -401,7 +419,7 @@ async function handleClear(e) {
       : `${res.raidKey} — 새로 체크할 캐릭터가 없어요 (이미 완료)`;
     setBarStatus(msg); notice(msg);
   } catch (err) {
-    setBarStatus('자동 인식에 실패해서 확인 창을 띄웠어요.'); openAutoClear(e);
+    setBarStatus(`자동 인식에 실패해서 확인 창을 띄웠어요. (${err.message || '오류'})`); openAutoClear(e);
   } finally { autoBusy = false; }
 }
 window.addEventListener('loa:dungeon-clear', e => void handleClear(e));

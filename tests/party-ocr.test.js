@@ -35,3 +35,16 @@ test('이름 막대 검출: 어두운 붉은 막대만 찾는다', () => {
   assert.equal(bars.length, 1);
   assert.ok(Math.abs(bars[0].x - 40) <= 1 && Math.abs(bars[0].y - 50) <= 1);
 });
+
+test('이름 막대 검출: 체력이 깎여 붉은 부분이 짧은 막대도 찾는다', () => {
+  const W = 1920, H = 120, data = new Uint8ClampedArray(W * H * 4).fill(0);
+  for (let i = 0; i < W * H; i++) data[i * 4 + 3] = 255;
+  // 붉은 부분 45px + 회색(빈 체력) 100px
+  for (let y = 50; y < 67; y++) for (let x = 80; x < 225; x++) {
+    const i = (y * W + x) * 4, red = x < 125;
+    data[i] = red ? 64 : 68; data[i + 1] = red ? 24 : 68; data[i + 2] = red ? 33 : 68;
+  }
+  const bars = findNameBars({ data, width: W, height: H });
+  assert.equal(bars.length, 1);
+  assert.ok(bars[0].w >= 140, `폭이 넓혀져야 함: ${bars[0].w}`);
+});

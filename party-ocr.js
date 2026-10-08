@@ -43,12 +43,13 @@ export function similarity(a, b) {
 // ---------- 이름 막대 찾기 ----------
 // 게임 화면의 파티 목록은 어두운 붉은 막대 위에 회색 글씨로 캐릭터명이 적혀 있다.
 // 위치가 사용자 UI 설정마다 달라서 고정 좌표 대신 색으로 막대를 찾는다.
-const isBar = (r, g, b) => r >= 28 && r <= 140 && r - g >= 18 && g <= r * 0.5 && b <= r * 0.7;
+const isBar = (r, g, b) => r >= 28 && r <= 150 && r - g >= 16 && g <= r * 0.75 && b <= r * 0.92 && r - b >= 4;
 
 export function findNameBars(img) {
   const { data, width: W, height: H } = img;
   const s = W / 1920;
-  const gapTol = Math.max(3, Math.round(16 * s)), minRun = Math.round(80 * s), maxRun = Math.round(280 * s);
+  const gapTol = Math.max(3, Math.round(16 * s)), maxRun = Math.round(280 * s);
+  const minFull = Math.round(80 * s), minPartial = Math.round(28 * s); // 체력이 깎인 막대는 붉은 부분만 보인다
   const minH = Math.max(5, Math.round(9 * s)), maxH = Math.round(44 * s);
   const groups = [];
   let open = [];
@@ -58,7 +59,7 @@ export function findNameBars(img) {
     const close = () => {
       if (start >= 0) {
         const len = last - start + 1;
-        if (len >= minRun && len <= maxRun && count / len >= 0.3) runs.push([start, last]);
+        if (len >= minPartial && len <= maxRun && count / len >= 0.3) runs.push([start, last, count]);
       }
       start = -1; count = 0;
     };
@@ -71,16 +72,26 @@ export function findNameBars(img) {
       }
     }
     close();
-    for (const [x0, x1] of runs) {
-      const g = open.find((o) => Math.min(o.x1, x1) - Math.max(o.x0, x0) >= 0.7 * Math.min(o.x1 - o.x0, x1 - x0));
-      if (g) { g.lastY = y; g.x0 = Math.min(g.x0, x0); g.x1 = Math.max(g.x1, x1); }
-      else { const ng = { x0, x1, y0: y, lastY: y }; groups.push(ng); open.push(ng); }
+    for (const [x0, x1, cnt] of runs) {
+      // 같은 막대: 왼쪽 끝이 비슷하고 바로 위 줄들에서 이어지는 것
+      const g = open.find((o) => Math.abs(o.x0 - x0) <= 6 * s && (Math.min(o.x1, x1) - Math.max(o.x0, x0)) >= 0.5 * Math.min(o.x1 - o.x0, x1 - x0));
+      if (g) { g.lastY = y; g.x0 = Math.min(g.x0, x0); g.x1 = Math.max(g.x1, x1); g.red += cnt; }
+      else { const ng = { x0, x1, y0: y, lastY: y, red: cnt }; groups.push(ng); open.push(ng); }
     }
     open = open.filter((o) => y - o.lastY <= 3); // 글자 때문에 몇 줄 끊겨도 같은 막대로 본다
   }
-  return groups
-    .map((g) => ({ x: g.x0, y: g.y0, w: g.x1 - g.x0 + 1, h: g.lastY - g.y0 + 1 }))
-    .filter((b) => b.h >= minH && b.h <= maxH);
+  let bars = groups
+    .map((g) => ({ x: g.x0, y: g.y0, w: g.x1 - g.x0 + 1, h: g.lastY - g.y0 + 1, red: g.red / ((g.x1 - g.x0 + 1) * (g.lastY - g.y0 + 1)) }))
+    .filter((b) => b.h >= minH && b.h <= maxH && b.red >= 0.65); // 이름 막대는 붉은 부분이 충분히 차지한다
+  // 붉은 부분이 짧은 막대는 같은 열에 있는 다른 막대의 폭(없으면 기본 폭)까지 넓혀서 글자가 잘리지 않게 한다
+  const fallbackW = Math.round(146 * s);
+  bars = bars.map((b) => {
+    if (b.w >= minFull) return b;
+    const same = bars.filter((o) => Math.abs(o.x - b.x) <= 6 * s && o.w >= minFull);
+    const w = same.length ? Math.max(...same.map((o) => o.w)) : fallbackW;
+    return { ...b, w: Math.min(w, W - b.x) };
+  }).filter((b) => b.w / b.h >= 4 && b.w / b.h <= 16);
+  return bars;
 }
 
 // 이미지 한 채널(점수 배열)을 쌍선형으로 확대한다.
@@ -105,24 +116,39 @@ function toBinary(score, w, h, thr) {
   return { data: out, width: w, height: h };
 }
 
-// 막대 안에서 "회색 글자" 픽셀만 검정, 나머지는 흰색으로 바꾼 뒤 흰 여백을 두르고 확대한다.
+// 막대 안에서 글자 픽셀만 검정, 나머지는 흰색으로 바꾼 뒤 흰 여백을 두르고 확대한다.
+// 배경이 붉은색(체력 있음)이든 회색(체력 없음)이든 열마다 배경 밝기를 따로 구해서 그보다 밝은 픽셀을 글자로 본다.
 export function binarizeBar(img, bar, scale = 4, pad = 6) {
   const { data, width: W } = img;
   const bw = bar.w + pad * 2, bh = bar.h + pad * 2;
-  const gs = [];
-  for (let y = bar.y; y < bar.y + bar.h; y++) for (let x = bar.x; x < bar.x + bar.w; x++) gs.push(data[(y * W + x) * 4 + 1]);
-  gs.sort((a, b) => a - b);
-  const base = gs[Math.floor(gs.length * 0.4)], top = gs[Math.floor(gs.length * 0.995)];
-  const thr = base + Math.max(14, (top - base) * 0.45);
+  const g = (x, y) => data[((bar.y + y) * W + bar.x + x) * 4 + 1];
+  const bg = new Float32Array(bar.w);
+  for (let x = 0; x < bar.w; x++) {
+    const col = [];
+    for (let y = 0; y < bar.h; y++) col.push(g(x, y));
+    col.sort((a, b) => a - b);
+    bg[x] = col[Math.floor(col.length * 0.2)];
+  }
+  const sm = bg.map((_, x) => { // 좌우 5칸 중간값으로 부드럽게
+    const win = [];
+    for (let k = -2; k <= 2; k++) win.push(bg[Math.min(bar.w - 1, Math.max(0, x + k))]);
+    return win.sort((a, b) => a - b)[2];
+  });
+  const rel = [];
   const score = new Float32Array(bw * bh); // 막대 밖(여백)은 0
   for (let y = 0; y < bar.h; y++) {
     for (let x = 0; x < bar.w; x++) {
       const i = ((bar.y + y) * W + bar.x + x) * 4;
-      const r = data[i], g = data[i + 1], b = data[i + 2];
-      const gray = Math.max(r, g, b) - Math.min(r, g, b) < 0.35 * Math.max(r, g, b, 1); // 금색 숫자는 제외
-      score[(y + pad) * bw + x + pad] = gray ? g : 0;
+      const r = data[i], gg = data[i + 1], b = data[i + 2];
+      const gray = Math.max(r, gg, b) - Math.min(r, gg, b) < 0.35 * Math.max(r, gg, b, 1); // 금색 숫자는 제외
+      const v = gray ? Math.max(0, gg - sm[x]) : 0;
+      score[(y + pad) * bw + x + pad] = v;
+      if (v > 0) rel.push(v);
     }
   }
+  rel.sort((a, b) => a - b);
+  const top = rel.length ? rel[Math.floor(rel.length * 0.99)] : 0;
+  const thr = Math.max(10, top * 0.4);
   return toBinary(upscale(score, bw, bh, scale), bw * scale, bh * scale, thr);
 }
 
@@ -221,7 +247,7 @@ export function createPartyReader() {
     async read(frame, { maxBars = 10 } = {}) {
       const w = await worker();
       const img = frame.getContext('2d').getImageData(0, 0, frame.width, frame.height);
-      const bars = sortBars(findNameBars(img)).slice(0, maxBars);
+      const bars = sortBars(findNameBars(img).sort((a, b) => b.red - a.red).slice(0, maxBars));
       const names = [];
       for (const bar of bars) names.push(await line(w, binarizeBar(img, bar), '7'));
       // 좌상단 레이드명
