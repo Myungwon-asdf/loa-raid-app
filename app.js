@@ -289,7 +289,7 @@ window.addEventListener('pagehide',()=>{if(channel) void db.removeChannel(channe
 window.addEventListener('pageshow',()=>subscribeRealtime());
 // ---- 자동 클리어 감지 연동 (clear-detector.js가 'loa:dungeon-clear' 이벤트를 발생시킴) ----
 const partyReader = createPartyReader();
-let autoModal, autoOpen = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set();
+let autoModal, autoOpen = false, autoBusy = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set(), lastAuto = null, undoTimer;
 window.loaWarmOcr = () => { partyReader.warm().catch(() => {}); };
 function loadAuto() { try { return JSON.parse(localStorage.getItem('loa-auto') || '{}'); } catch { return {}; } }
 function saveAuto(v) { try { localStorage.setItem('loa-auto', JSON.stringify(v)); } catch {} }
@@ -307,25 +307,31 @@ function renderAutoCharacters() {
     return `<label class="d-flex align-items-center gap-2 mb-1"><input type="checkbox" class="form-check-input mt-0" value="${h(c.id)}" ${checked ? 'checked' : ''} ${done ? 'disabled' : ''}><span>${h(c.name)}${foreign} <small class="text-secondary">${h(c.className)} · Lv.${c.itemLevel.toFixed(2)}</small>${done ? ' <span class="text-success">✓ 이미 완료</span>' : ''}</span></label>`;
   }).join('') || '<div class="text-secondary">이 레이드에 입장 가능한 캐릭터가 없습니다.</div>';
 }
+function fullAuto() { try { return localStorage.getItem('loa-auto-full') !== '0'; } catch { return true; } }
+function setBarStatus(text) { $('autoClearStatus').textContent = text; }
+async function analyzeFrame(frame) {
+  const { names, raidText } = await partyReader.read(frame);
+  return { names, matched: matchCharacters(names, characters), raidKey: matchRaidGroup(raidText, raids) };
+}
+function showRecognition(res) {
+  if (res.raidKey) $('autoRaid').value = res.raidKey;
+  if (res.matched.length) { autoDetected = new Set(res.matched.map(m => m.id)); autoChecked = new Set(autoDetected); }
+  renderAutoCharacters();
+  setOcrStatus(res.matched.length
+    ? `인식된 캐릭터 ${res.matched.length}명: ${res.matched.map(m => m.name).join(', ')}${res.raidKey ? ' · ' + res.raidKey : ' · 레이드는 직접 선택해 주세요'} — 맞는지 확인해 주세요.`
+    : '캐릭터를 인식하지 못했어요. 직접 선택해 주세요.');
+}
 async function recognizeFrame(frame, seq) {
   if (!frame) { setOcrStatus('화면을 캡처하지 못했어요. 직접 선택해 주세요.'); return; }
   setOcrStatus('파티원 인식 중… (처음에는 언어 데이터를 내려받느라 시간이 걸릴 수 있어요)');
   try {
-    const { names, raidText } = await partyReader.read(frame);
-    if (seq !== autoSeq || !autoOpen) return;
-    const matched = matchCharacters(names, characters);
-    const raidKey = matchRaidGroup(raidText, raids);
-    if (raidKey) $('autoRaid').value = raidKey;
-    if (matched.length) { autoDetected = new Set(matched.map(m => m.id)); autoChecked = new Set(autoDetected); }
-    renderAutoCharacters();
-    setOcrStatus(matched.length
-      ? `인식된 캐릭터 ${matched.length}명: ${matched.map(m => m.name).join(', ')}${raidKey ? ' · ' + raidKey : ''} — 맞는지 확인해 주세요.`
-      : '캐릭터를 인식하지 못했어요. 직접 선택해 주세요.');
+    const res = await analyzeFrame(frame);
+    if (seq === autoSeq && autoOpen) showRecognition(res);
   } catch (e) {
     if (seq === autoSeq) setOcrStatus(`자동 인식 실패: ${e.message || '오류'} — 직접 선택해 주세요.`);
   }
 }
-function openAutoClear(e) {
+function openAutoClear(e, recognized) {
   if (!ready || autoOpen || !requireEditable()) return;
   const keys = [...new Set(raids.map(r => r.group))];
   if (!keys.length) return;
@@ -336,25 +342,72 @@ function openAutoClear(e) {
   renderAutoCharacters();
   autoModal ||= new bootstrap.Modal($('autoClearModal'));
   autoOpen = true; autoModal.show();
-  void recognizeFrame(e?.detail?.frame, ++autoSeq);
+  const seq = ++autoSeq;
+  if (recognized) showRecognition(recognized); else void recognizeFrame(e?.detail?.frame, seq);
+}
+// 선택한 캐릭터들을 해당 레이드군으로 체크한다. 실제로 체크된 항목을 돌려준다.
+async function applyClears(key, ids) {
+  const applied = [];
+  for (const id of ids) {
+    const c = characters.find(c => c.id === id), group = c && autoGroup(c, key);
+    if (!group || group.some(r => c.completedRaids.includes(r.id))) continue;
+    const raidId = group[0].id, name = c.name;
+    const ok = await mutate(id, async () => {
+      upsertCharacter(await rpc('loa_set_raid', { p_character_id: id, p_raid_id: raidId, p_done: true, p_week: currentWeek }));
+    }, `${name} ${key} 클리어를 체크했습니다.`);
+    if (ok) applied.push({ id, name, raidId, week: currentWeek });
+  }
+  return applied;
+}
+function rememberAuto(key, applied) {
+  clearTimeout(undoTimer);
+  lastAuto = applied.length ? { key, applied } : null;
+  $('autoUndo').hidden = !lastAuto;
+  if (lastAuto) undoTimer = setTimeout(() => { lastAuto = null; $('autoUndo').hidden = true; }, 5 * 60 * 1000);
+}
+async function undoAuto() {
+  if (!lastAuto) return;
+  const { applied } = lastAuto;
+  rememberAuto('', []);
+  for (const a of applied) {
+    await mutate(a.id, async () => {
+      upsertCharacter(await rpc('loa_set_raid', { p_character_id: a.id, p_raid_id: a.raidId, p_done: false, p_week: a.week }));
+    }, `${a.name} 체크를 되돌렸습니다.`);
+  }
+  setBarStatus('자동 체크를 되돌렸어요.');
 }
 async function confirmAutoClear() {
   const key = $('autoRaid').value;
   const ids = [...$('autoChars').querySelectorAll('input:checked')].map(x => x.value);
   saveAuto({ raid: key, chars: ids });
   autoSeq++; autoModal.hide();
-  let ok = 0, failed = 0;
-  for (const id of ids) {
-    const c = characters.find(c => c.id === id), group = c && autoGroup(c, key);
-    if (!group || group.some(r => c.completedRaids.includes(r.id))) continue;
-    const saved = await mutate(id, async () => {
-      upsertCharacter(await rpc('loa_set_raid', { p_character_id: id, p_raid_id: group[0].id, p_done: true, p_week: currentWeek }));
-    }, `${c.name} ${key} 클리어를 체크했습니다.`);
-    if (saved) ok++; else failed++;
-  }
-  if (!failed) notice(ok ? `${key} 클리어 ${ok}명을 체크했습니다.` : '새로 체크할 캐릭터가 없습니다.');
+  const applied = await applyClears(key, ids);
+  rememberAuto(key, applied);
+  if (!pending.size) notice(applied.length ? `${key} 클리어 ${applied.length}명을 체크했습니다.` : '새로 체크할 캐릭터가 없습니다.');
 }
-window.addEventListener('loa:dungeon-clear', openAutoClear);
+// 클리어 감지 → 완전 자동이면 바로 체크, 애매하면 확인 모달로 넘긴다.
+async function handleClear(e) {
+  if (!ready || autoOpen || autoBusy) return;
+  const frame = e?.detail?.frame;
+  if (!fullAuto() || !frame || !editable()) { openAutoClear(e); return; }
+  autoBusy = true; setBarStatus('🎯 클리어 감지 — 파티원 인식 중…');
+  try {
+    const res = await analyzeFrame(frame);
+    if (!res.raidKey || !res.matched.length) { setBarStatus('인식이 확실하지 않아 확인 창을 띄웠어요.'); openAutoClear(e, res); return; }
+    const applied = await applyClears(res.raidKey, res.matched.map(m => m.id));
+    rememberAuto(res.raidKey, applied);
+    const msg = applied.length
+      ? `✅ ${res.raidKey} 자동 체크: ${applied.map(x => x.name).join(', ')}`
+      : `${res.raidKey} — 새로 체크할 캐릭터가 없어요 (이미 완료)`;
+    setBarStatus(msg); notice(msg);
+  } catch (err) {
+    setBarStatus('자동 인식에 실패해서 확인 창을 띄웠어요.'); openAutoClear(e);
+  } finally { autoBusy = false; }
+}
+window.addEventListener('loa:dungeon-clear', e => void handleClear(e));
+$('autoFull').checked = fullAuto();
+$('autoFull').addEventListener('change', () => { try { localStorage.setItem('loa-auto-full', $('autoFull').checked ? '1' : '0'); } catch {} });
+$('autoUndo').addEventListener('click', () => void undoAuto());
 $('autoRaid').addEventListener('change', renderAutoCharacters);
 $('autoChars').addEventListener('change', e => { if (e.target.type === 'checkbox') e.target.checked ? autoChecked.add(e.target.value) : autoChecked.delete(e.target.value); });
 $('autoConfirm').addEventListener('click', () => void confirmAutoClear());
