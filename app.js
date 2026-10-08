@@ -311,14 +311,17 @@ function fullAuto() { try { return localStorage.getItem('loa-auto-full') !== '0'
 function setBarStatus(text) { $('autoClearStatus').textContent = text; }
 // 레이드 제목 글자와 사용자가 직접 고른 레이드군을 기억해 두었다가 다음부터 자동으로 연결한다.
 function loadRaidMap() { try { return JSON.parse(localStorage.getItem('loa-raid-map') || '[]'); } catch { return []; } }
+const hangulOnly = t => String(t || '').replace(/[^가-힣]/g, '');
 function learnedRaid(text) {
+  text = hangulOnly(text);
   const keys = new Set(raids.map(r => r.group));
-  const ranked = loadRaidMap().filter(e => keys.has(e.group)).map(e => ({ group: e.group, score: similarity(text, e.text) })).sort((a, b) => b.score - a.score);
+  const ranked = loadRaidMap().filter(e => keys.has(e.group)).map(e => ({ group: e.group, score: similarity(text, hangulOnly(e.text)) })).sort((a, b) => b.score - a.score);
   return ranked.length && ranked[0].score >= 0.7 ? ranked[0].group : null;
 }
 function learnRaid(text, group) {
-  if (!text || text.length < 4) return;
-  const map = loadRaidMap().filter(e => similarity(text, e.text) < 0.9);
+  text = hangulOnly(text);
+  if (text.length < 4) return;
+  const map = loadRaidMap().filter(e => similarity(text, hangulOnly(e.text)) < 0.9);
   map.unshift({ text, group });
   try { localStorage.setItem('loa-raid-map', JSON.stringify(map.slice(0, 30))); } catch {}
 }

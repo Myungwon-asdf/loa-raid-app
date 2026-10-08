@@ -206,6 +206,9 @@ export function matchRaidGroup(text, raids, minScore = 0.72) {
   return ranked[0][0];
 }
 
+// 좌상단 레이드 제목이 있는 영역 (게임 화면 기준 비율)
+export const RAID_REGION = { x: 0, y: 0.02, w: 0.2, h: 0.1 };
+
 // ---------- 브라우저용 OCR ----------
 const TESS_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js';
 const LANG_PATH = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/kor/4.0.0_best_int';
@@ -251,8 +254,8 @@ export function createPartyReader() {
       const names = [];
       for (const bar of bars) names.push(await line(w, binarizeBar(img, bar), '7'));
       // 좌상단 레이드명
-      const rx = Math.round(frame.width * 0.0), ry = Math.round(frame.height * 0.025);
-      const rw = Math.round(frame.width * 0.2), rh = Math.round(frame.height * 0.075);
+      const rx = Math.round(frame.width * RAID_REGION.x), ry = Math.round(frame.height * RAID_REGION.y);
+      const rw = Math.round(frame.width * RAID_REGION.w), rh = Math.round(frame.height * RAID_REGION.h);
       const sub = frame.getContext('2d').getImageData(rx, ry, rw, rh);
       const raidText = await line(w, brightText(sub), '6');
       return { names: names.filter(Boolean), raidText };
@@ -260,12 +263,25 @@ export function createPartyReader() {
   };
 }
 
-// 어두운 배경 위 밝은 글자(레이드명) → 검정 글자/흰 배경
+// 어두운 배경 위 흰색/회색 글자(레이드 제목) → 검정 글자/흰 배경
+// 밝은 아이콘이나 주황색 난이도 글자에 기준이 끌려가지 않도록, 저채도 픽셀만 보고 열별 배경 대비로 판단한다.
 export function brightText(img, scale = 4) {
   const { data, width: W, height: H } = img;
-  const g = new Float32Array(W * H);
-  let max = 0;
-  for (let i = 0; i < W * H; i++) { g[i] = data[i * 4 + 1]; max = Math.max(max, g[i]); }
-  const thr = Math.max(60, max * 0.55);
-  return toBinary(upscale(g, W, H, scale), W * scale, H * scale, thr);
+  const bg = new Float32Array(W);
+  for (let x = 0; x < W; x++) {
+    const col = [];
+    for (let y = 0; y < H; y++) col.push(data[(y * W + x) * 4 + 1]);
+    col.sort((a, b) => a - b);
+    bg[x] = col[Math.floor(col.length * 0.3)];
+  }
+  const score = new Float32Array(W * H), vals = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
+    const gray = Math.max(r, g, b) - Math.min(r, g, b) < 0.3 * Math.max(r, g, b, 1);
+    const v = gray ? Math.max(0, g - bg[x]) : 0;
+    score[y * W + x] = v; if (v > 0) vals.push(v);
+  }
+  vals.sort((a, b) => a - b);
+  const top = vals.length ? vals[Math.floor(vals.length * 0.97)] : 0;
+  return toBinary(upscale(score, W, H, scale), W * scale, H * scale, Math.max(12, top * 0.5));
 }
