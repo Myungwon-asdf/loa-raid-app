@@ -389,10 +389,11 @@
   <div class="d-flex flex-wrap align-items-center gap-2 mb-2" id="autoClearBar">
     <button class="btn btn-sm btn-primary" id="autoStart">🎥 자동 체크 켜기</button>
     <button class="btn btn-sm btn-secondary" id="autoStop">끄기</button>
-    <button class="btn btn-sm btn-outline-warning" id="autoTemplate">클리어 화면 등록</button>
+    <button class="btn btn-sm btn-outline-warning" id="autoTemplate" title="기본으로 내장된 클리어 화면 모양으로 감지됩니다. 감지가 안 될 때만 클리어 배너가 떠 있는 동안 눌러 추가하세요.">클리어 화면 추가 등록(선택)</button>
     <label class="small d-flex align-items-center gap-1 mb-0" style="color:#cbd5e1;"><input type="checkbox" id="autoFull"> 완전 자동 (확인 없이 바로 체크)</label>
     <button class="btn btn-sm btn-outline-danger" id="autoUndo" hidden>↩ 방금 자동 체크 되돌리기</button>
     <span id="autoClearStatus" class="small" style="color:#a8b5c9;"></span>
+    <span id="autoClearBeat" class="small" style="color:#64748b;"></span>
   </div>
     <button class="btn btn-sm btn-outline-warning" id="retryRefresh" hidden>실패한 캐릭터 재시도</button>
   <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
@@ -515,13 +516,15 @@
   <script>
     (function () {
       const statusEl = document.getElementById('autoClearStatus');
+      const beatEl = document.getElementById('autoClearBeat');
       const setStatus = (m) => { statusEl.textContent = m; };
+      const onTick = (t) => { beatEl.textContent = '감시 중 ' + new Date(t.at).toLocaleTimeString('ko-KR') + ' · 배너 일치도 ' + t.score.toFixed(2); };
       document.getElementById('autoStart').onclick = () =>
         ClearDetector.start({
-          onStatus: setStatus,
+          onStatus: setStatus, onTick,
           onClear: (frame) => window.dispatchEvent(new CustomEvent('loa:dungeon-clear', { detail: { frame } })),
         }).then(() => { if (window.loaWarmOcr) window.loaWarmOcr(); }).catch((e) => setStatus('화면공유 실패: ' + e.message));
-      document.getElementById('autoStop').onclick = () => ClearDetector.stop();
+      document.getElementById('autoStop').onclick = () => { ClearDetector.stop(); beatEl.textContent = ''; };
       document.getElementById('autoTemplate').onclick = () => ClearDetector.registerTemplate();
     })();
   </script>

@@ -194,7 +194,7 @@ export function bestWindowScore(text, key) {
 }
 
 // raids: [{group, name}] → 가장 가까운 레이드군 이름 (없으면 null)
-export function matchRaidGroup(text, raids, minScore = 0.72) {
+export function matchRaidGroup(text, raids, minScore = 0.66) {
   const scores = new Map();
   for (const r of raids) {
     const sc = Math.max(bestWindowScore(text, r.group), bestWindowScore(text, r.name));
