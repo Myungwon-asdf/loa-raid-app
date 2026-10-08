@@ -1,4 +1,5 @@
 import { DATABASE_URL, ANON_KEY } from './config.js';
+import { createPartyReader, matchCharacters, matchRaidGroup } from './party-ocr.js';
 import { escapeHtml as h, characterFromRow, raidGroups, progress, formatSyncedAt } from './lib/domain.js';
 
 const $ = id => document.getElementById(id);
@@ -287,35 +288,61 @@ setInterval(()=>{if(!document.hidden) scheduleReload();},60000);
 window.addEventListener('pagehide',()=>{if(channel) void db.removeChannel(channel);channel=null;});
 window.addEventListener('pageshow',()=>subscribeRealtime());
 // ---- 자동 클리어 감지 연동 (clear-detector.js가 'loa:dungeon-clear' 이벤트를 발생시킴) ----
-let autoModal, autoOpen = false;
+const partyReader = createPartyReader();
+let autoModal, autoOpen = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set();
+window.loaWarmOcr = () => { partyReader.warm().catch(() => {}); };
 function loadAuto() { try { return JSON.parse(localStorage.getItem('loa-auto') || '{}'); } catch { return {}; } }
 function saveAuto(v) { try { localStorage.setItem('loa-auto', JSON.stringify(v)); } catch {} }
 function autoGroup(c, key) { return raidGroups(raids, c.itemLevel).find(g => g[0].group === key); }
+function setOcrStatus(text) { $('autoOcrStatus').textContent = text; }
 function renderAutoCharacters() {
-  const key = $('autoRaid').value, saved = loadAuto();
-  const list = scopedCharacters().map(c => ({ c, group: autoGroup(c, key) })).filter(x => x.group);
+  const key = $('autoRaid').value;
+  const pool = new Map(scopedCharacters().map(c => [c.id, c]));
+  characters.filter(c => autoDetected.has(c.id)).forEach(c => pool.set(c.id, c)); // 다른 소유자 캐릭터도 인식되면 포함
+  const list = [...pool.values()].map(c => ({ c, group: autoGroup(c, key) })).filter(x => x.group);
   $('autoChars').innerHTML = list.map(({ c, group }) => {
     const done = group.some(r => c.completedRaids.includes(r.id));
-    const checked = !done && (saved.chars || []).includes(c.id);
-    return `<label class="d-flex align-items-center gap-2 mb-1"><input type="checkbox" class="form-check-input mt-0" value="${h(c.id)}" ${checked ? 'checked' : ''} ${done ? 'disabled' : ''}><span>${h(c.name)} <small class="text-secondary">${h(c.className)} · Lv.${c.itemLevel.toFixed(2)}</small>${done ? ' <span class="text-success">✓ 이미 완료</span>' : ''}</span></label>`;
+    const checked = !done && autoChecked.has(c.id);
+    const foreign = owner !== 'ALL' && c.owner !== owner ? ` <span class="owner-badge">${h(c.owner)}</span>` : '';
+    return `<label class="d-flex align-items-center gap-2 mb-1"><input type="checkbox" class="form-check-input mt-0" value="${h(c.id)}" ${checked ? 'checked' : ''} ${done ? 'disabled' : ''}><span>${h(c.name)}${foreign} <small class="text-secondary">${h(c.className)} · Lv.${c.itemLevel.toFixed(2)}</small>${done ? ' <span class="text-success">✓ 이미 완료</span>' : ''}</span></label>`;
   }).join('') || '<div class="text-secondary">이 레이드에 입장 가능한 캐릭터가 없습니다.</div>';
 }
-function openAutoClear() {
+async function recognizeFrame(frame, seq) {
+  if (!frame) { setOcrStatus('화면을 캡처하지 못했어요. 직접 선택해 주세요.'); return; }
+  setOcrStatus('파티원 인식 중… (처음에는 언어 데이터를 내려받느라 시간이 걸릴 수 있어요)');
+  try {
+    const { names, raidText } = await partyReader.read(frame);
+    if (seq !== autoSeq || !autoOpen) return;
+    const matched = matchCharacters(names, characters);
+    const raidKey = matchRaidGroup(raidText, raids);
+    if (raidKey) $('autoRaid').value = raidKey;
+    if (matched.length) { autoDetected = new Set(matched.map(m => m.id)); autoChecked = new Set(autoDetected); }
+    renderAutoCharacters();
+    setOcrStatus(matched.length
+      ? `인식된 캐릭터 ${matched.length}명: ${matched.map(m => m.name).join(', ')}${raidKey ? ' · ' + raidKey : ''} — 맞는지 확인해 주세요.`
+      : '캐릭터를 인식하지 못했어요. 직접 선택해 주세요.');
+  } catch (e) {
+    if (seq === autoSeq) setOcrStatus(`자동 인식 실패: ${e.message || '오류'} — 직접 선택해 주세요.`);
+  }
+}
+function openAutoClear(e) {
   if (!ready || autoOpen || !requireEditable()) return;
   const keys = [...new Set(raids.map(r => r.group))];
   if (!keys.length) return;
   const saved = loadAuto();
   $('autoRaid').innerHTML = keys.map(k => `<option value="${h(k)}">${h(k)}</option>`).join('');
   if (keys.includes(saved.raid)) $('autoRaid').value = saved.raid;
+  autoChecked = new Set(saved.chars || []); autoDetected = new Set(); setOcrStatus('');
   renderAutoCharacters();
   autoModal ||= new bootstrap.Modal($('autoClearModal'));
   autoOpen = true; autoModal.show();
+  void recognizeFrame(e?.detail?.frame, ++autoSeq);
 }
 async function confirmAutoClear() {
   const key = $('autoRaid').value;
   const ids = [...$('autoChars').querySelectorAll('input:checked')].map(x => x.value);
   saveAuto({ raid: key, chars: ids });
-  autoModal.hide();
+  autoSeq++; autoModal.hide();
   let ok = 0, failed = 0;
   for (const id of ids) {
     const c = characters.find(c => c.id === id), group = c && autoGroup(c, key);
@@ -329,8 +356,9 @@ async function confirmAutoClear() {
 }
 window.addEventListener('loa:dungeon-clear', openAutoClear);
 $('autoRaid').addEventListener('change', renderAutoCharacters);
+$('autoChars').addEventListener('change', e => { if (e.target.type === 'checkbox') e.target.checked ? autoChecked.add(e.target.value) : autoChecked.delete(e.target.value); });
 $('autoConfirm').addEventListener('click', () => void confirmAutoClear());
-$('autoClearModal').addEventListener('hidden.bs.modal', () => { autoOpen = false; });
+$('autoClearModal').addEventListener('hidden.bs.modal', () => { autoOpen = false; autoSeq++; });
 
 Object.assign(window,{loadDashboardData,switchView,renderDashboard:render,openAddCharacterModal,checkApiForNewChar,submitNewCharacter,resetWeeklyRaids,refreshApiData,openRaidManageModal,addNewRaidMaster});
 void loadDashboardData(); subscribeRealtime();

@@ -112,6 +112,18 @@ const ClearDetector = (() => {
     return true;
   }
 
+  // 감지 시점의 게임 화면(검은 여백 제외)을 canvas로 복사한다. 가로 1920px 초과 시 축소.
+  function snapshot() {
+    try {
+      const r = findGameRect();
+      const k = Math.min(1, 1920 / r.w);
+      const c = document.createElement('canvas');
+      c.width = Math.round(r.w * k); c.height = Math.round(r.h * k);
+      c.getContext('2d', { willReadFrequently: true }).drawImage(video, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
+      return c;
+    } catch { return null; }
+  }
+
   function tick() {
     if (!video || video.readyState < 2) return;
     if (Date.now() < cooldownUntil) return;
@@ -124,7 +136,7 @@ const ClearDetector = (() => {
       hits = 0;
       cooldownUntil = Date.now() + COOLDOWN_MS;
       onStatus('던전 클리어 감지!');
-      if (onClear) onClear();
+      if (onClear) onClear(snapshot());
     }
   }
 

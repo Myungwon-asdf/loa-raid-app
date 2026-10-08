@@ -493,6 +493,7 @@
             <label class="form-label" for="autoRaid">클리어한 레이드</label>
             <select class="form-select bg-secondary text-white border-0" id="autoRaid"></select>
           </div>
+          <div id="autoOcrStatus" class="small mb-2" style="color:#a8b5c9;"></div>
           <div class="form-label">체크할 캐릭터</div>
           <div id="autoChars"></div>
         </div>
@@ -516,8 +517,8 @@
       document.getElementById('autoStart').onclick = () =>
         ClearDetector.start({
           onStatus: setStatus,
-          onClear: () => window.dispatchEvent(new CustomEvent('loa:dungeon-clear')),
-        }).catch((e) => setStatus('화면공유 실패: ' + e.message));
+          onClear: (frame) => window.dispatchEvent(new CustomEvent('loa:dungeon-clear', { detail: { frame } })),
+        }).then(() => { if (window.loaWarmOcr) window.loaWarmOcr(); }).catch((e) => setStatus('화면공유 실패: ' + e.message));
       document.getElementById('autoStop').onclick = () => ClearDetector.stop();
       document.getElementById('autoTemplate').onclick = () => ClearDetector.registerTemplate();
     })();
