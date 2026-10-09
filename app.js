@@ -291,6 +291,7 @@ window.addEventListener('pageshow',()=>subscribeRealtime());
 const partyReader = createPartyReader();
 let autoModal, autoOpen = false, autoBusy = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set(), lastAuto = null, undoTimer, autoRaidText = '';
 window.loaWarmOcr = () => { partyReader.warm().catch(() => {}); };
+window.loaVerifyClear = (frame) => partyReader.verifyAuction(frame);
 function loadAuto() { try { return JSON.parse(localStorage.getItem('loa-auto') || '{}'); } catch { return {}; } }
 function saveAuto(v) { try { localStorage.setItem('loa-auto', JSON.stringify(v)); } catch {} }
 function autoGroup(c, key) { return raidGroups(raids, c.itemLevel).find(g => g[0].group === key); }

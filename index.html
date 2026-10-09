@@ -523,7 +523,12 @@
       document.getElementById('autoStart').onclick = () =>
         ClearDetector.start({
           onStatus: setStatus, onTick,
-          onClear: (frame) => window.dispatchEvent(new CustomEvent('loa:dungeon-clear', { detail: { frame } })),
+          onClear: async (frame, signal) => {
+            // 경매 문구 신호는 장비 분해 창 안내문 같은 비슷한 글줄에 반응할 수 있어서 글자를 읽어 확인한다.
+            if (signal === 'auction' && window.loaVerifyClear && !(await window.loaVerifyClear(frame))) return false;
+            window.dispatchEvent(new CustomEvent('loa:dungeon-clear', { detail: { frame } }));
+            return true;
+          },
         }).then(() => { if (window.loaWarmOcr) window.loaWarmOcr(); }).catch((e) => setStatus('화면공유 실패: ' + e.message));
       document.getElementById('autoDiag').onclick = () => {
         const c = ClearDetector.diagnose();

@@ -230,6 +230,12 @@ function toCanvas(img) {
   return c;
 }
 
+// 상단 "경매 시작까지 남은 시간" 문구 영역 (clear-detector의 auction 신호와 같은 자리, 글자 전체가 들어오게 약간 넓힘)
+export const AUCTION_REGION = { x: 0.40, y: 0.2155, w: 0.20, h: 0.021 };
+export const AUCTION_TEXT = '경매시작까지남은시간';
+// 이 값보다 낮으면 전혀 다른 문구(예: 아이템 분해 안내)로 본다. 실제 클리어는 0.88 이상, 분해 창은 0.28이었다.
+export const AUCTION_REJECT = 0.35;
+
 export function createPartyReader() {
   // 한글 전용(레이드 제목, 한글 이름)과 한글+영문(영문 이름) 두 작업자를 따로 쓴다.
   // 한글+영문 모델은 영문 이름은 잘 읽지만 한글 제목은 오히려 깨뜨리는 경우가 있어서 결과를 합친다.
@@ -248,6 +254,17 @@ export function createPartyReader() {
     return r.data.text.replace(/\s+/g, ' ').trim();
   }
   return {
+    // 경매 문구 후보 검증. 확실히 다른 문구일 때만 false, 읽기 실패 등은 통과(true)시킨다.
+    async verifyAuction(frame) {
+      try {
+        const wk = await worker('kor');
+        const x = Math.round(frame.width * AUCTION_REGION.x), y = Math.round(frame.height * AUCTION_REGION.y);
+        const w = Math.round(frame.width * AUCTION_REGION.w), h = Math.max(4, Math.round(frame.height * AUCTION_REGION.h));
+        const sub = frame.getContext('2d').getImageData(x, y, w, h);
+        const text = await line(wk, brightText(sub), '7');
+        return similarity(norm(text), AUCTION_TEXT) >= AUCTION_REJECT;
+      } catch { return true; }
+    },
     warm: () => Promise.all([worker('kor'), worker('kor+eng')]).then(() => true),
     // frame: 게임 화면 영역을 담은 canvas
     async read(frame, { maxBars = 10 } = {}) {
