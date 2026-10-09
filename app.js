@@ -102,7 +102,7 @@ function render() {
   if (raidModal) renderRaidManageTable();
   document.querySelectorAll('[data-live-only]').forEach(button => { button.disabled = !editable() || batchRunning || pending.size > 0; });
   $('submitCharacter').disabled = !editable() || pending.has('add') || !previewName || previewName !== $('newCharName').value.trim();
-  $('refreshBtn').textContent = owner === 'ALL' ? '🔄 전체 갱신' : '🔄 원정대 갱신';
+  $('refreshBtn').textContent = owner === 'ALL' ? '전체 갱신' : '원정대 갱신';
   $('refreshBtn').title = '1시간이 지난 정보만 갱신합니다. 카드의 갱신 버튼으로 개별 갱신할 수 있습니다.';
 }
 function renderOwnerTabs() {
@@ -115,6 +115,7 @@ function renderStats() {
   const done = stats.reduce((s,p) => s+p.done,0), total = stats.reduce((s,p) => s+p.total,0);
   $('statCharCount').textContent = `${list.length}명`;
   $('statCompletedRaids').textContent = `${done} / ${total}`;
+  $('weekFill').style.width = total ? `${Math.round(done / total * 100)}%` : '0%';
   $('statAvgLevel').textContent = `Lv.${list.length ? (list.reduce((s,c) => s+c.itemLevel,0)/list.length).toFixed(2) : '0.00'}`;
   $('scopeLabel').textContent = `${owner === 'ALL' ? '전체 원정대' : owner+' 원정대'} · ${$('searchInput').value.trim() || $('hideCompleted').checked ? '필터 결과' : '전체'} ${list.length}명`;
 }
@@ -122,7 +123,7 @@ function raidMarkup(c) {
   const groups = raidGroups(raids,c.itemLevel);
   return '<div class="raid-tag-list">' + (groups.map(group => {
     const r = group[0], done = group.some(r => c.completedRaids.includes(r.id));
-    return `<button class="raid-tag-btn ${done ? 'active' : ''}" data-action="raid" data-id="${h(c.id)}" data-raid="${h(r.id)}" aria-pressed="${done}" ${!editable() || pending.has(c.id) || batchRunning ? 'disabled' : ''}>${done ? '✓ ' : ''}${h(r.name)}</button>`;
+    return `<button class="raid-tag-btn ${done ? 'active' : ''}" data-action="raid" data-id="${h(c.id)}" data-raid="${h(r.id)}" aria-pressed="${done}" ${!editable() || pending.has(c.id) || batchRunning ? 'disabled' : ''}>${h(r.name)}</button>`;
   }).join('') || '<span class="text-secondary">입장 가능한 레이드 없음</span>') + '</div>';
 }
 function renderDashboard() {
@@ -130,20 +131,21 @@ function renderDashboard() {
   $('characterGrid').innerHTML = list.map(c => {
     const p = progress(c,raids), busy = pending.has(c.id), disabled = !editable() || busy || batchRunning;
     return `<div class="col-12 col-md-6 col-xl-4" data-card-id="${h(c.id)}">
-      <article class="character-card" aria-label="${h(c.name)}">
+      <article class="character-card ${p.total && p.done === p.total ? 'is-clear' : ''}" aria-label="${h(c.name)}">
+        <div class="progress-strip" aria-hidden="true">${Array.from({ length: p.total }, (_, i) => `<i class="${i < p.done ? 'on' : ''}"></i>`).join('')}</div>
         <div class="card-top-section" draggable="${!disabled}" data-drag-id="${h(c.id)}">
-          <div class="char-profile-box">${c.characterImage ? `<img src="${h(c.characterImage)}" alt="${h(c.name)}" class="char-profile-img" loading="lazy">` : '<span class="text-secondary">이미지 없음</span>'}</div>
+          <div class="char-profile-box">${c.characterImage ? `<img src="${h(c.characterImage)}" alt="${h(c.name)}" class="char-profile-img" loading="lazy">` : '<span>이미지 없음</span>'}</div>
           <div class="card-info-wrapper"><div><div class="char-sub-text"><span class="owner-badge">${h(c.owner)}</span>${h(c.title)}</div>
             <div class="char-name" title="${h(c.name)}">${h(c.name)}</div><div class="char-sub-text">${h(c.className)}</div></div>
-            <div class="mt-2"><strong class="text-warning">Lv.${c.itemLevel.toFixed(2)}</strong><div class="char-sub-text">전투력 ${h(c.combatPower)}</div></div>
+            <div><div class="char-level"><small>Lv.</small>${c.itemLevel.toFixed(2)}</div><div class="char-sub-text">전투력 ${h(c.combatPower)}</div></div>
           </div>
         </div>
-        <div class="card-bottom-section"><div class="gem-box"><span class="gem-title">💎 보석</span><span class="gem-detail">${h(c.gemSummary)}</span></div>
+        <div class="card-bottom-section"><div class="gem-box"><span class="gem-title">보석</span><span class="gem-detail">${h(c.gemSummary)}</span></div>
           <div class="raid-section-head"><span class="raid-section-title">주간 레이드</span><span class="raid-status-count">${p.done} / ${p.total}</span></div>
           ${raidMarkup(c)}
           <div class="card-footer-actions"><span class="sync-age" title="${h(c.apiSyncedAt || '')}">${busy ? '저장 중…' : h(formatSyncedAt(c.apiSyncedAt))}</span><button class="btn-card-icon" data-action="move-up" data-id="${h(c.id)}" ${disabled || owner === 'ALL' ? 'disabled' : ''} aria-label="${h(c.name)} 위로 이동">↑</button>
             <button class="btn-card-icon" data-action="move-down" data-id="${h(c.id)}" ${disabled || owner === 'ALL' ? 'disabled' : ''} aria-label="${h(c.name)} 아래로 이동">↓</button>
-            <button class="btn-card-icon" data-action="refresh" data-id="${h(c.id)}" ${disabled ? 'disabled' : ''}>🔄 갱신</button>
+            <button class="btn-card-icon" data-action="refresh" data-id="${h(c.id)}" ${disabled ? 'disabled' : ''}>갱신</button>
             <button class="btn-card-icon" data-action="delete" data-id="${h(c.id)}" ${disabled ? 'disabled' : ''}>삭제</button></div>
         </div>
       </article></div>`;
@@ -159,7 +161,7 @@ function renderScheduleView() {
     const todo = eligible.filter(c => !done.includes(c));
     if (!eligible.length || ($('hideCompleted').checked && !todo.length)) return '';
     const chips = (items,done) => items.map(c => `<span class="char-chip ${done ? 'done' : 'todo'}">${h(c.name)} <small>Lv.${c.itemLevel}</small></span>`).join('') || '<span class="text-secondary">없음</span>';
-    return `<section class="schedule-card"><div class="schedule-title">${h(name)} <span class="schedule-badge">${done.length} / ${eligible.length}</span></div><div class="mt-3">⏳ 남음 ${todo.length}명</div><div>${chips(todo,false)}</div><details class="mt-2"><summary>완료 ${done.length}명</summary>${chips(done,true)}</details></section>`;
+    return `<section class="schedule-card"><div class="schedule-title">${h(name)} <span class="schedule-badge">${done.length} / ${eligible.length}</span></div><div class="mt-3">남음 ${todo.length}명</div><div>${chips(todo,false)}</div><details class="mt-2"><summary>완료 ${done.length}명</summary>${chips(done,true)}</details></section>`;
   }).join('') || '<div class="empty-state">표시할 레이드가 없습니다.</div>';
 }
 function switchView(next) {

@@ -7,335 +7,212 @@
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="icon" href="/logo.png" type="image/png">
   
   <style>
     :root {
-      --bg-dark: #080b11;
-      --card-bg: #0f1523;
-      --inner-bg: #090d16;
-      --border-color: #1a2336;
-      --text-muted: #64748b;
-      --accent-yellow: #fbbf24;
-      --accent-green: #10b981;
-      --accent-blue: #2563eb;
+      --ink: #0d0f15;
+      --panel: #151925;
+      --panel-2: #1b2030;
+      --well: #10131c;
+      --rule: #272d3f;
+      --rule-hi: #38405a;
+      --text: #ece7db;
+      --dim: #a3abbd;
+      --faint: #7c8499;
+      --brass: #dba84a;
+      --brass-ink: #1a1306;
+      --clear: #52bfa3;
+      --clear-bg: rgba(82,191,163,.12);
+      --rust: #e27a69;
+      --focus: #f2c46a;
+      --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
     }
-
-    body { 
-      background-color: var(--bg-dark); 
-      color: #f1f5f9; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      padding: 20px 24px;
+    * { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--ink); color: var(--text); font-family: var(--font);
+      font-feature-settings: "tnum" 1; padding: 24px clamp(14px, 3vw, 40px) 64px;
+      max-width: 1480px; margin: 0 auto; line-height: 1.5;
     }
+    button { font-family: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
 
     #loadingOverlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-      display: flex; justify-content: center; align-items: center;
-      z-index: 9999; color: #fbbf24; font-size: 1.8rem; font-weight: 900;
-      flex-direction: column; gap: 10px;
+      position: fixed; inset: 0; background: rgba(13,15,21,.92); backdrop-filter: blur(6px);
+      display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 8px;
+      z-index: 9999; color: var(--brass); font-size: 1.25rem; font-weight: 700;
     }
 
-    .top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-    }
-    .brand-logo {
-      width: 42px;
-      height: 42px;
-      object-fit: contain;
-      border-radius: 8px;
-    }
-    .brand-title {
-      font-size: 1.4rem;
-      font-weight: 900;
-      letter-spacing: -0.5px;
-      color: #ffffff;
-      line-height: 1;
-    }
-    .brand-subtitle {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
+    /* ---- 머리글: 이름표 + 이번 주 진행 ---- */
+    .top-header { display: grid; grid-template-columns: auto minmax(260px, 1fr) auto; gap: 20px 40px; align-items: center; margin-bottom: 28px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; }
+    .brand-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+    .brand-subtitle { font-size: .78rem; color: var(--dim); margin-top: 3px; }
 
-    .header-stats {
-      display: flex;
-      align-items: center;
-      background-color: #0d121f;
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 6px 20px;
-      gap: 24px;
-    }
-    .stat-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .stat-label {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-    .stat-value {
-      font-size: 1.05rem;
-      font-weight: 800;
-    }
+    .week { min-width: 0; }
+    .week-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .week-num { font-size: 2.1rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; color: var(--text); }
+    .week-num small { font-size: 1rem; color: var(--dim); font-weight: 600; margin-left: 4px; }
+    .week-label { font-size: .85rem; color: var(--dim); }
+    .week-meta { margin-left: auto; font-size: .8rem; color: var(--dim); display: flex; gap: 14px; }
+    .week-meta b { color: var(--text); font-weight: 700; }
+    .week-meta .lv { color: var(--brass); }
+    .week-track { height: 6px; border-radius: 3px; background: var(--panel-2); margin-top: 10px; overflow: hidden; }
+    .week-fill { height: 100%; width: 0; background: var(--clear); border-radius: 3px; transition: width .5s ease; }
 
+    .header-actions { display: flex; gap: 8px; }
     .btn-header-action {
-      font-size: 0.82rem;
-      font-weight: 700;
-      padding: 7px 14px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: none;
+      font-size: .82rem; font-weight: 600; padding: 8px 14px; border-radius: 8px; min-height: 38px;
+      background: var(--panel); color: var(--text); border: 1px solid var(--rule); cursor: pointer;
     }
-    .btn-api-refresh { background-color: #2563eb; color: #fff; }
-    .btn-api-refresh:hover { background-color: #1d4ed8; color: #fff; }
-    .btn-weekly-reset { background-color: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
-    .btn-weekly-reset:hover { background-color: #334155; color: #fff; }
-    .btn-icon-only { background-color: #1e293b; color: #cbd5e1; padding: 7px 11px; border: 1px solid #334155; }
+    .btn-header-action:hover:not(:disabled) { border-color: var(--rule-hi); background: var(--panel-2); }
+    .btn-api-refresh { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); font-weight: 700; }
+    .btn-api-refresh:hover:not(:disabled) { background: #e6b85e; border-color: #e6b85e; }
 
-    .nav-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
+    /* ---- 탭/도구 ---- */
+    .nav-section { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .owner-tabs { gap: 2px; border-bottom: 1px solid var(--rule); flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
     .owner-tabs .nav-link {
-      color: #94a3b8;
-      font-weight: 700;
-      font-size: 0.85rem;
-      padding: 6px 16px;
-      border-radius: 8px;
-      background: transparent;
-      margin-right: 4px;
-      border: 1px solid transparent;
+      color: var(--dim); font-weight: 600; font-size: .9rem; padding: 9px 16px; background: none; border: 0;
+      border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; white-space: nowrap;
     }
-    .owner-tabs .nav-link:hover { color: #f1f5f9; }
-    .owner-tabs .nav-link.active {
-      background-color: #f59e0b;
-      color: #000000;
-      font-weight: 800;
-    }
+    .owner-tabs .nav-link:hover { color: var(--text); }
+    .owner-tabs .nav-link.active { color: var(--brass); border-bottom-color: var(--brass); background: none; }
+    .sub-tools { display: flex; align-items: center; gap: 4px; }
+    .btn-sub-tool { font-size: .85rem; font-weight: 600; padding: 7px 12px; border-radius: 8px; color: var(--dim); background: none; border: 1px solid transparent; cursor: pointer; }
+    .btn-sub-tool:hover { color: var(--text); }
+    .btn-sub-tool.active { color: var(--text); background: var(--panel); border-color: var(--rule); }
+    .btn-add-char-orange { font-size: .85rem; font-weight: 700; padding: 7px 14px; border-radius: 8px; background: none; color: var(--brass); border: 1px solid var(--brass); cursor: pointer; margin-left: 6px; }
+    .btn-add-char-orange:hover:not(:disabled) { background: var(--brass); color: var(--brass-ink); }
 
-    .sub-tools {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background-color: #0d121f;
-      padding: 4px;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-    }
-    .btn-sub-tool {
-      font-size: 0.8rem;
-      font-weight: 700;
-      padding: 5px 12px;
-      border-radius: 6px;
-      color: #94a3b8;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-    }
-    .btn-sub-tool.active {
-      background-color: #1e293b;
-      color: #ffffff;
-    }
-    .btn-add-char-orange {
-      background-color: #d97706;
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 0.8rem;
-      padding: 5px 12px;
-      border-radius: 6px;
-      border: none;
-    }
+    /* ---- 자동 체크 ---- */
+    .auto-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+    .auto-title { font-weight: 700; font-size: .9rem; margin-right: 2px; }
+    .auto-bar .btn { font-size: .8rem; font-weight: 600; border-radius: 7px; }
+    #autoStart { background: var(--clear); border-color: var(--clear); color: #07241c; }
+    #autoStart:hover { background: #66cdb1; border-color: #66cdb1; }
+    #autoStop { background: transparent; border-color: var(--rule-hi); color: var(--dim); }
+    #autoClearStatus { font-size: .82rem; color: var(--clear); }
+    #autoClearBeat { font-size: .75rem; color: var(--faint); margin-left: auto; }
+    .auto-more { flex-basis: 100%; }
+    .auto-more summary { cursor: pointer; font-size: .8rem; color: var(--dim); list-style: none; display: inline-block; padding: 2px 0; }
+    .auto-more summary::-webkit-details-marker { display: none; }
+    .auto-more summary::before { content: "＋ "; }
+    .auto-more[open] summary::before { content: "－ "; }
+    .auto-more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-top: 8px; }
+    .auto-more-body label { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--text); margin: 0; }
 
-    .filter-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .search-input-wrapper {
-      position: relative;
-      width: 280px;
-    }
+    .status-message { color: var(--clear); margin: 0 0 12px; min-height: 22px; font-size: .88rem; overflow-wrap: anywhere; }
+    .status-message:empty { min-height: 0; margin: 0; }
+    .status-error { color: var(--rust); }
+
+    .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 18px; }
+    .filter-bar label { font-size: .85rem; color: var(--dim); display: flex; align-items: center; gap: 6px; margin: 0; }
+    .search-input-wrapper { position: relative; width: 300px; max-width: 100%; }
     .search-input {
-      background-color: #0d121f;
-      border: 1px solid var(--border-color);
-      color: #f1f5f9;
-      border-radius: 20px;
-      padding: 5px 14px 5px 34px;
-      font-size: 0.82rem;
-      width: 100%;
+      background: var(--panel); border: 1px solid var(--rule); color: var(--text); border-radius: 8px;
+      padding: 8px 12px 8px 34px; font-size: .88rem; width: 100%; min-height: 38px;
     }
-    .search-input:focus {
-      background-color: #0d121f;
-      color: #fff;
-      border-color: #2563eb;
-      outline: none;
-      box-shadow: none;
-    }
-    .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #64748b;
-      font-size: 0.8rem;
-    }
+    .search-input::placeholder { color: var(--faint); }
+    .search-input:focus { background: var(--panel); color: var(--text); border-color: var(--brass); box-shadow: none; }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: .8rem; pointer-events: none; }
+    #scopeLabel { margin-left: auto; font-size: .8rem; color: var(--dim); }
 
+    /* ---- 캐릭터 카드: 윗변이 이번 주 진행 막대 ---- */
     .character-card {
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 0;
-      overflow: hidden;
-      height: auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: border-color 0.2s, opacity 0.2s;
+      position: relative; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px;
+      overflow: hidden; display: flex; flex-direction: column; transition: border-color .2s, opacity .2s;
     }
-    .character-card:hover { border-color: #2e3d5a; }
-    .character-card.dragging { opacity: 0.4; border: 2px dashed #fbbf24; }
-    .col-12.drag-over .character-card { border-color: #fbbf24; background-color: #162035; }
+    .character-card:hover { border-color: var(--rule-hi); }
+    .character-card.dragging { opacity: .4; border-style: dashed; border-color: var(--brass); }
+    .col-12.drag-over .character-card { border-color: var(--brass); background: var(--panel-2); }
+    .progress-strip { display: flex; gap: 2px; height: 4px; background: var(--rule); }
+    .progress-strip i { flex: 1; background: var(--rule); }
+    .progress-strip i.on { background: var(--clear); }
+    .character-card.is-clear { border-color: rgba(82,191,163,.45); }
+    .character-card.is-clear .char-name { color: var(--dim); }
 
-    .card-top-section { display: flex; align-items: stretch; cursor: grab; }
+    .card-top-section { display: flex; align-items: stretch; cursor: grab; height: 128px; }
     .card-top-section:active { cursor: grabbing; }
-    
-    .char-profile-box {
-      width: 116px; min-width: 116px;
-      background-color: var(--card-bg);
-      border-right: 1px solid var(--border-color);
-      padding: 8px 6px 8px 8px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .char-profile-img {
-      width: 100%; height: 100%;
-      object-fit: cover; object-position: center top;
-      border-radius: 6px;
-    }
+    .char-profile-box { width: 92px; min-width: 92px; background: var(--well); display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: .72rem; text-align: center; }
+    .char-profile-img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .card-info-wrapper { padding: 12px 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+    .owner-badge { font-size: .68rem; font-weight: 700; background: var(--panel-2); color: var(--dim); padding: 1px 6px; border-radius: 4px; margin-right: 6px; flex-shrink: 0; }
+    .char-name { font-size: 1.12rem; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 1px; }
+    .char-sub-text { font-size: .78rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .char-level { font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; color: var(--brass); line-height: 1.1; }
+    .char-level small { font-size: .72rem; font-weight: 600; margin-right: 2px; opacity: .8; }
 
-    .card-info-wrapper {
-      padding: 14px 16px; flex-grow: 1;
-      display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
-    }
+    .card-bottom-section { padding: 10px 14px 10px; }
+    .gem-box { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: .78rem; padding: 7px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+    .gem-title { color: var(--dim); font-weight: 600; flex-shrink: 0; }
+    .gem-detail { color: var(--text); text-align: right; overflow-wrap: anywhere; }
 
-    .owner-badge {
-      font-size: 0.68rem; font-weight: 700;
-      background-color: #1e293b; color: #94a3b8;
-      padding: 1px 5px; border-radius: 4px; margin-right: 4px; flex-shrink: 0;
-    }
-    
-    .char-name-container { display: flex; align-items: center; min-width: 0; }
-    .char-name {
-      font-size: 1.05rem; font-weight: 800; color: #ffffff;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      flex-grow: 1; min-width: 0;
-    }
-    .char-sub-text {
-      font-size: 0.75rem; color: #94a3b8; margin-top: 2px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    
-    .card-bottom-section { padding: 0 16px 16px 16px; }
+    .raid-section-head { display: flex; justify-content: space-between; align-items: baseline; margin: 12px 0 8px; }
+    .raid-section-title { font-size: .8rem; color: var(--dim); font-weight: 600; }
+    .raid-status-count { font-size: .85rem; color: var(--faint); font-weight: 700; }
+    .is-clear .raid-status-count { color: var(--clear); }
 
-    .gem-box {
-      background-color: var(--inner-bg);
-      border: 1px solid #141c2e; border-radius: 8px;
-      padding: 6px 10px; margin-top: 12px;
-      display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;
-    }
-    .gem-title { color: #a855f7; font-weight: 700; display: flex; align-items: center; gap: 4px; }
-    .gem-detail { color: #cbd5e1; font-weight: 600; }
-
-    .raid-section-head {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-top: 14px; margin-bottom: 8px;
-    }
-    .raid-section-title { font-size: 0.72rem; color: #64748b; font-weight: 700; }
-    .raid-status-count { font-size: 0.75rem; color: var(--accent-green); font-weight: 800; }
-
-    .raid-tag-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .raid-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .raid-tag-btn {
-      font-size: 0.72rem; font-weight: 700; padding: 5px 9px;
-      border-radius: 6px; border: 1px solid #1e293b; background-color: #090d16;
-      color: #64748b; cursor: pointer; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 12px 6px 8px;
+      font-size: .82rem; font-weight: 600; color: var(--dim); background: var(--well);
+      border: 1px solid var(--rule); border-radius: 6px; cursor: pointer; transition: border-color .15s, color .15s, background .15s;
     }
-    .raid-tag-btn.active { background-color: #059669; border-color: #10b981; color: #ffffff; }
+    .raid-tag-btn::before { content: ""; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--rule-hi); flex-shrink: 0; box-sizing: border-box; }
+    .raid-tag-btn:hover:not(:disabled) { border-color: var(--rule-hi); color: var(--text); }
+    .raid-tag-btn.active { color: var(--text); background: var(--clear-bg); border-color: rgba(82,191,163,.55); }
+    .raid-tag-btn.active::before {
+      background: var(--clear) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.8 2.8L12 5.5' fill='none' stroke='%2307241c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; border-color: var(--clear);
+    }
 
-    .card-footer-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; padding-top: 6px; }
-    .btn-card-icon {
-      background: none; border: none; color: #64748b;
-      font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;
-    }
-    .btn-card-icon:hover { color: #cbd5e1; }
+    .card-footer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-top: 10px; }
+    .sync-age { margin-right: auto; font-size: .72rem; color: var(--faint); }
+    .btn-card-icon { background: none; border: 0; color: var(--dim); font-size: .78rem; font-weight: 600; cursor: pointer; min-width: 34px; min-height: 34px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; }
+    .btn-card-icon:hover:not(:disabled) { color: var(--text); background: var(--panel-2); }
+    .btn-card-icon[data-action="delete"]:hover:not(:disabled) { color: var(--rust); }
 
-    .schedule-card {
-      background-color: var(--card-bg); border: 1px solid var(--border-color);
-      border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    /* ---- 남은 레이드 요약 ---- */
+    .schedule-card { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+    .schedule-title { font-size: 1.05rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .schedule-badge { font-size: .78rem; font-weight: 700; background: var(--panel-2); color: var(--clear); padding: 2px 9px; border-radius: 999px; }
+    .schedule-card details summary { cursor: pointer; color: var(--dim); font-size: .85rem; margin: 6px 0; }
+    .char-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: .82rem; font-weight: 600; margin: 0 6px 6px 0; border: 1px solid var(--rule); }
+    .char-chip small { color: var(--faint); font-weight: 500; }
+    .char-chip.done { background: var(--clear-bg); color: var(--clear); border-color: rgba(82,191,163,.4); }
+    .char-chip.todo { background: var(--well); color: var(--text); }
+    .workspace-status { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 16px; }
+    .workspace-status select { background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; }
+    #weekHelp, .sync-age, #connectionState { font-size: .8rem; color: var(--dim); }
+    .empty-state { text-align: center; padding: 56px 16px; color: var(--dim); }
+
+    @media (max-width: 1000px) {
+      .top-header { grid-template-columns: 1fr auto; }
+      .week { grid-column: 1 / -1; order: 3; }
     }
-    .schedule-title { font-size: 1.1rem; font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 8px; }
-    .schedule-badge { font-size: 0.75rem; background-color: #1e293b; color: #94a3b8; padding: 2px 8px; border-radius: 6px; }
-    .char-chip {
-      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-      border-radius: 8px; font-size: 0.8rem; font-weight: 700; margin-right: 6px; margin-bottom: 6px; border: 1px solid #1a2336;
+    @media (max-width: 600px) {
+      body { padding: 16px 14px 48px; }
+      .top-header { grid-template-columns: 1fr; gap: 14px; }
+      .header-actions { flex-wrap: wrap; }
+      .btn-header-action { min-height: 44px; flex: 1 1 auto; }
+      .week-num { font-size: 1.8rem; }
+      .week-meta { margin-left: 0; width: 100%; }
+      .sub-tools { width: 100%; }
+      .btn-sub-tool, .btn-add-char-orange { min-height: 44px; }
+      .btn-add-char-orange { margin-left: auto; }
+      .owner-tabs .nav-link { min-height: 44px; }
+      .search-input { min-height: 44px; }
+      .raid-tag-btn { min-height: 44px; }
+      .btn-card-icon { min-height: 44px; min-width: 44px; }
+      .card-top-section { height: 116px; }
+      .char-profile-box { width: 80px; min-width: 80px; }
+      #autoClearBeat { margin-left: 0; flex-basis: 100%; }
+      #scopeLabel { margin-left: 0; }
     }
-    .char-chip.done { background-color: #064e3b; color: #34d399; border-color: #059669; }
-    .char-chip.todo { background-color: #0f172a; color: #cbd5e1; border-color: #334155; }
-    .char-chip-img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
-    .workspace-status { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; margin-bottom:16px; }
-    .workspace-status label { display:flex; gap:8px; align-items:center; }
-    .workspace-status select { background:#172136; color:#f1f5f9; border:1px solid #475569; border-radius:8px; padding:8px; }
-    #weekHelp, #scopeLabel, .sync-age, #connectionState { font-size:.8rem; color:#a8b5c9; }
-    .status-message { color:#a7f3d0; margin:8px 0 16px; min-height:24px; overflow-wrap:anywhere; }
-    .status-error { color:#fda4af; }
-    .raid-tag-btn { color:#bdc9db; min-height:36px; }
-    .raid-tag-btn:disabled, button:disabled { opacity:.55; cursor:not-allowed; }
-    .btn-card-icon { min-width:36px; min-height:36px; color:#a8b5c9; justify-content:center; }
-    .sync-age { margin-right:auto; font-size:.7rem; }
-    .raid-section-title, .stat-label, .brand-subtitle { color:#a8b5c9; }
-    .filter-bar { flex-wrap:wrap; gap:12px; }
-    .gem-box { gap:10px; align-items:flex-start; }
-    .gem-detail { text-align:right; overflow-wrap:anywhere; }
-    .empty-state { text-align:center; padding:48px 16px; color:#a8b5c9; }
-    .card-top-section { height:136px; }
-    .char-profile-box { width:96px; min-width:96px; }
-    .char-profile-img { height:120px; object-fit:contain; }
-    .card-info-wrapper { padding:10px 12px; }
-    .card-bottom-section { padding:0 12px 8px; }
-    .gem-box { margin-top:4px; padding:5px 8px; }
-    .raid-section-head { margin-top:10px; margin-bottom:6px; }
-    .card-footer-actions { flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; padding-top:0; }
-    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #fbbf24; outline-offset:3px; }
-    @media(max-width:1100px) { .top-header { flex-wrap:wrap; gap:16px; } .nav-section { flex-wrap:wrap; gap:12px; } }
-    @media(max-width:600px) {
-      body { padding:16px 12px; }
-      .header-stats { width:100%; justify-content:space-between; gap:8px; padding:10px 12px; }
-      .header-actions { width:100%; flex-wrap:wrap; gap:6px !important; }
-      .btn-header-action { min-height:44px; padding:7px 10px; font-size:.75rem; }
-      .owner-tabs { flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding-bottom:8px; }
-      .owner-tabs .nav-link { white-space:nowrap; min-height:44px; }
-      .sub-tools { width:100%; display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:3px; }
-      .btn-sub-tool, .btn-add-char-orange { min-height:44px; font-size:.72rem; padding:5px 4px; }
-      .search-input-wrapper { width:100%; }
-      .search-input { min-height:44px; }
-      .raid-tag-btn { min-height:44px; }
-      .char-profile-box { width:88px; min-width:88px; }
-      .card-info-wrapper { padding:12px; }
-      .schedule-title { flex-wrap:wrap; font-size:1rem; }
-      #loadingOverlay { font-size:1.1rem; padding:24px; text-align:center; }
-    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
@@ -345,58 +222,61 @@
     <div style="font-size: 1rem; color: #cbd5e1;">잠시만 기다려주세요.</div>
   </div>
 
-  <div class="top-header">
-    <div class="d-flex align-items-center gap-3">
+  <header class="top-header">
+    <div class="brand">
       <img src="logo.png" alt="로고" class="brand-logo">
       <div>
         <div class="brand-title">LOA RAID</div>
-        <div class="brand-subtitle">원정대 캐릭터 및 주간 레이드 관리 시스템</div>
+        <div class="brand-subtitle">원정대 주간 레이드 관리</div>
       </div>
     </div>
 
-    <div class="header-stats">
-      <div class="stat-item">
-        <span class="stat-label">등록 캐릭터</span>
-        <span class="stat-value text-white" id="statCharCount">0명</span>
+    <section class="week" aria-label="이번 주 진행 상황">
+      <div class="week-line">
+        <span class="week-num" id="statCompletedRaids">0 / 0</span>
+        <span class="week-label">이번 주 클리어</span>
+        <span class="week-meta">
+          <span>캐릭터 <b id="statCharCount">0명</b></span>
+          <span>평균 <b class="lv" id="statAvgLevel">Lv.0.00</b></span>
+        </span>
       </div>
-      <div class="stat-item">
-        <span class="stat-label">주간 레이드 클리어</span>
-        <span class="stat-value text-success" id="statCompletedRaids">0 / 0</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">평균 아이템 레벨</span>
-        <span class="stat-value" style="color: var(--accent-yellow);" id="statAvgLevel">Lv.0.00</span>
-      </div>
-    </div>
+      <div class="week-track"><div class="week-fill" id="weekFill"></div></div>
+    </section>
 
-    <div class="d-flex gap-2 header-actions">
-      <button class="btn-header-action btn-api-refresh" onclick="refreshApiData()" id="refreshBtn" data-live-only disabled>🔄 원정대 오래된 정보 갱신</button>
-      <button class="btn-header-action btn-weekly-reset" onclick="resetWeeklyRaids()" data-live-only disabled>🧹 이번 주 체크 해제</button>
-      <button class="btn-header-action btn-icon-only" onclick="openRaidManageModal()" title="레이드 관리" aria-label="레이드 관리" data-live-only disabled>⚙️</button>
+    <div class="header-actions">
+      <button class="btn-header-action btn-api-refresh" onclick="refreshApiData()" id="refreshBtn" data-live-only disabled>원정대 갱신</button>
+      <button class="btn-header-action btn-weekly-reset" onclick="resetWeeklyRaids()" data-live-only disabled>이번 주 체크 해제</button>
+      <button class="btn-header-action btn-icon-only" onclick="openRaidManageModal()" title="레이드 관리" aria-label="레이드 관리" data-live-only disabled>관리</button>
     </div>
-  </div>
+  </header>
 
   <div class="nav-section">
     <ul class="nav owner-tabs" id="ownerTabs"></ul>
 
     <div class="sub-tools">
-      <button class="btn-sub-tool active" id="btnTabChars" onclick="switchView('CHARS')">👥 캐릭터 현황</button>
-      <button class="btn-sub-tool" id="btnTabSchedule" onclick="switchView('SCHEDULE')">📋 남은 레이드 요약</button>
+      <button class="btn-sub-tool active" id="btnTabChars" onclick="switchView('CHARS')">캐릭터</button>
+      <button class="btn-sub-tool" id="btnTabSchedule" onclick="switchView('SCHEDULE')">남은 레이드</button>
       <button class="btn-add-char-orange" onclick="openAddCharacterModal()" data-live-only disabled>+ 캐릭터 추가</button>
     </div>
   </div>
 
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-2" id="autoClearBar">
-    <button class="btn btn-sm btn-primary" id="autoStart">🎥 자동 체크 켜기</button>
-    <button class="btn btn-sm btn-secondary" id="autoStop">끄기</button>
-    <button class="btn btn-sm btn-outline-warning" id="autoTemplate" title="기본으로 내장된 클리어 화면 모양으로 감지됩니다. 감지가 안 될 때만 클리어 배너가 떠 있는 동안 눌러 추가하세요.">클리어 화면 추가 등록(선택)</button>
-    <label class="small d-flex align-items-center gap-1 mb-0" style="color:#cbd5e1;"><input type="checkbox" id="autoFull"> 완전 자동 (확인 없이 바로 체크)</label>
-    <button class="btn btn-sm btn-outline-danger" id="autoUndo" hidden>↩ 방금 자동 체크 되돌리기</button>
-    <button class="btn btn-sm btn-outline-secondary" id="autoDiag" title="자동 체크가 안 될 때: 최근 화면 상태를 이미지로 저장합니다. 이 파일을 보내주시면 원인을 확인할 수 있어요.">진단 저장</button>
-    <span id="autoClearStatus" class="small" style="color:#a8b5c9;"></span>
-    <span id="autoClearBeat" class="small" style="color:#64748b;"></span>
+  <div class="auto-bar" id="autoClearBar">
+    <span class="auto-title">자동 체크</span>
+    <button class="btn btn-sm" id="autoStart">화면 공유로 켜기</button>
+    <button class="btn btn-sm" id="autoStop">끄기</button>
+    <button class="btn btn-sm btn-outline-danger" id="autoUndo" hidden>방금 자동 체크 되돌리기</button>
+    <span id="autoClearStatus" role="status"></span>
+    <span id="autoClearBeat"></span>
+    <details class="auto-more">
+      <summary>설정과 문제 해결</summary>
+      <div class="auto-more-body">
+        <label><input type="checkbox" id="autoFull"> 확인 없이 바로 체크</label>
+        <button class="btn btn-sm btn-outline-warning" id="autoTemplate" title="기본으로 내장된 클리어 화면 모양으로 감지됩니다. 감지가 안 될 때만 클리어 배너가 떠 있는 동안 눌러 추가하세요.">클리어 화면 추가 등록</button>
+        <button class="btn btn-sm btn-outline-secondary" id="autoDiag" title="자동 체크가 안 될 때: 최근 화면 상태를 이미지로 저장합니다. 이 파일을 보내주시면 원인을 확인할 수 있어요.">진단 저장</button>
+      </div>
+    </details>
   </div>
-    <button class="btn btn-sm btn-outline-warning" id="retryRefresh" hidden>실패한 캐릭터 재시도</button>
+  <button class="btn btn-sm btn-outline-warning mb-2" id="retryRefresh" hidden>실패한 캐릭터 재시도</button>
   <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
   <div class="filter-bar" id="filterBarView">
     <div class="search-input-wrapper">
