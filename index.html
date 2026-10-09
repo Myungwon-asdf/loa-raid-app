@@ -519,7 +519,7 @@
       const statusEl = document.getElementById('autoClearStatus');
       const beatEl = document.getElementById('autoClearBeat');
       const setStatus = (m) => { statusEl.textContent = m; };
-      const onTick = (t) => { beatEl.textContent = '감시 중 ' + new Date(t.at).toLocaleTimeString('ko-KR') + ' · 배너 일치도 ' + t.score.toFixed(2) + ' (최근 최고 ' + t.peak.toFixed(2) + ')'; };
+      const onTick = (t) => { beatEl.textContent = '감시 중 ' + new Date(t.at).toLocaleTimeString('ko-KR') + ' · 배너 ' + t.scores.banner.toFixed(2) + ' · 경매문구 ' + t.scores.auction.toFixed(2) + ' (최근 최고 ' + t.peak.toFixed(2) + ')'; };
       document.getElementById('autoStart').onclick = () =>
         ClearDetector.start({
           onStatus: setStatus, onTick,

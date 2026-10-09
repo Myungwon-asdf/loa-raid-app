@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { similarity, matchCharacters, matchRaidGroup, findNameBars } from '../party-ocr.js';
+import { similarity, matchCharacters, matchRaidGroup, findNameBars, brightText, binarizeBar, createPartyReader, RAID_REGION } from '../party-ocr.js';
 
 const chars = ['방산비리전문', '토끼전문', '용기한스푼', '미하뉴', '하루명월', '뛰는남자사람', '지치신워로드', '삐삐바다']
   .map((name, i) => ({ id: `c${i}`, name }));
@@ -47,4 +47,25 @@ test('이름 막대 검출: 체력이 깎여 붉은 부분이 짧은 막대도 �
   const bars = findNameBars({ data, width: W, height: H });
   assert.equal(bars.length, 1);
   assert.ok(bars[0].w >= 140, `폭이 넓혀져야 함: ${bars[0].w}`);
+});
+
+test('영문 이름도 대소문자·기호 차이를 무시하고 매칭한다', () => {
+  const mixed = [{ id: 'a', name: 'AriBlossom' }, { id: 'b', name: 'zoodasafann' }, { id: 'c', name: '삐도치' }, { id: 'd', name: '내분침어디갔어' }];
+  const m = matchCharacters(['AriBlossom', 'zoodasafann', '뼈도치', '내분침어디갔어', 'Ce og 아느 아하'], mixed);
+  assert.deepEqual(m.map(x => x.name).sort(), ['AriBlossom', 'zoodasafann', '내분침어디갔어', '삐도치'].sort());
+  assert.deepEqual(matchCharacters(['Ari Blossom'], mixed).map(x => x.name), ['AriBlossom']);
+});
+
+test('OCR 전처리 함수가 모두 내보내지고 동작한다', () => {
+  assert.equal(typeof createPartyReader, 'function');
+  assert.ok(RAID_REGION.w > 0);
+  const W = 40, H = 10, data = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) { data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = 20; data[i * 4 + 3] = 255; }
+  for (let y = 3; y < 7; y++) for (let x = 10; x < 30; x++) { const i = (y * W + x) * 4; data[i] = data[i + 1] = data[i + 2] = 220; }
+  const t = brightText({ data, width: W, height: H }, 2);
+  assert.equal(t.width, W * 2);
+  let dark = 0; for (let i = 0; i < t.width * t.height; i++) if (t.data[i * 4] === 0) dark++;
+  assert.ok(dark > 40, `글자 픽셀이 검정으로 나와야 함: ${dark}`);
+  const b = binarizeBar({ data, width: W, height: H }, { x: 5, y: 2, w: 30, h: 6 }, 2, 2);
+  assert.equal(b.width, (30 + 4) * 2);
 });

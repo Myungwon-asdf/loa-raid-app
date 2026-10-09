@@ -211,7 +211,8 @@ export const RAID_REGION = { x: 0, y: 0.02, w: 0.2, h: 0.1 };
 
 // ---------- 브라우저용 OCR ----------
 const TESS_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js';
-const LANG_PATH = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/kor/4.0.0_best_int';
+// 한글+영문 언어 데이터는 앱과 같은 주소(/tessdata)에서 받는다. (영문 이름 캐릭터도 읽기 위해 두 언어를 함께 쓴다)
+const langPath = () => new URL('tessdata', document.baseURI).href;
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -230,14 +231,16 @@ function toCanvas(img) {
 }
 
 export function createPartyReader() {
-  let workerPromise = null;
-  function worker() {
-    workerPromise ||= (async () => {
+  // 한글 전용(레이드 제목, 한글 이름)과 한글+영문(영문 이름) 두 작업자를 따로 쓴다.
+  // 한글+영문 모델은 영문 이름은 잘 읽지만 한글 제목은 오히려 깨뜨리는 경우가 있어서 결과를 합친다.
+  const workers = {};
+  function worker(key) {
+    workers[key] ||= (async () => {
       await loadScript(TESS_SRC);
-      return window.Tesseract.createWorker('kor', 1, { langPath: LANG_PATH });
+      return window.Tesseract.createWorker(key.split('+'), 1, { langPath: langPath() });
     })();
-    workerPromise.catch(() => { workerPromise = null; });
-    return workerPromise;
+    workers[key].catch(() => { delete workers[key]; });
+    return workers[key];
   }
   async function line(w, img, psm) {
     await w.setParameters({ tessedit_pageseg_mode: psm });
@@ -245,19 +248,22 @@ export function createPartyReader() {
     return r.data.text.replace(/\s+/g, ' ').trim();
   }
   return {
-    warm: () => worker().then(() => true),
+    warm: () => Promise.all([worker('kor'), worker('kor+eng')]).then(() => true),
     // frame: 게임 화면 영역을 담은 canvas
     async read(frame, { maxBars = 10 } = {}) {
-      const w = await worker();
+      const [wk, wke] = await Promise.all([worker('kor'), worker('kor+eng')]);
       const img = frame.getContext('2d').getImageData(0, 0, frame.width, frame.height);
       const bars = sortBars(findNameBars(img).sort((a, b) => b.red - a.red).slice(0, maxBars));
       const names = [];
-      for (const bar of bars) names.push(await line(w, binarizeBar(img, bar), '7'));
-      // 좌상단 레이드명
+      for (const bar of bars) {
+        const bin = binarizeBar(img, bar);
+        names.push(...await Promise.all([line(wk, bin, '7'), line(wke, bin, '7')]));
+      }
+      // 좌상단 레이드명 (한글 전용 모델)
       const rx = Math.round(frame.width * RAID_REGION.x), ry = Math.round(frame.height * RAID_REGION.y);
       const rw = Math.round(frame.width * RAID_REGION.w), rh = Math.round(frame.height * RAID_REGION.h);
       const sub = frame.getContext('2d').getImageData(rx, ry, rw, rh);
-      const raidText = await line(w, brightText(sub), '6');
+      const raidText = await line(wk, brightText(sub), '6');
       return { names: names.filter(Boolean), raidText };
     },
   };

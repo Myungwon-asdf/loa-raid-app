@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import handler from '../api/lostark-sync.js';
 const root = path.resolve(fileURLToPath(new URL('..',import.meta.url)));
-const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png'};
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gz':'application/gzip'};
 const fixtures=process.argv.includes('--fixtures');
 const server=http.createServer(async(req,res)=>{
   try {
@@ -15,7 +15,7 @@ const server=http.createServer(async(req,res)=>{
       res.status=s=>{res.statusCode=s;return res;};res.json=data=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));};
       await handler(req,res);return;
     }
-    const allowed=new Set(['/','/index.html','/app.js','/config.js','/lib/domain.js','/clear-detector.js','/party-ocr.js','/logo.png']);
+    const allowed=new Set(['/','/index.html','/app.js','/config.js','/lib/domain.js','/clear-detector.js','/party-ocr.js','/logo.png','/tessdata/kor.traineddata.gz','/tessdata/eng.traineddata.gz']);
     if(fixtures) allowed.add('/tests/browser-fixture.js');
     if(!allowed.has(url.pathname)){res.writeHead(404);res.end();return;}
     const filename=path.join(root,url.pathname==='/'?'index.html':url.pathname.slice(1));
