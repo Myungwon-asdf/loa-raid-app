@@ -189,6 +189,28 @@
     #weekHelp, .sync-age, #connectionState { font-size: .8rem; color: var(--dim); }
     .empty-state { text-align: center; padding: 56px 16px; color: var(--dim); }
 
+    /* ---- 사다리 ---- */
+    .ladder-setup { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 720px; margin-bottom: 18px; }
+    .ladder-setup label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; font-weight: 600; color: var(--text); }
+    .ladder-setup small { color: var(--faint); font-weight: 500; }
+    .ladder-setup textarea { background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: .9rem; resize: vertical; }
+    .ladder-setup textarea:focus { border-color: var(--brass); outline: none; }
+    .ladder-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .ladder-message { font-size: .85rem; color: var(--dim); }
+    .ladder-message.is-error { color: var(--rust); }
+    .ladder-tools { display: flex; gap: 4px; margin-bottom: 10px; }
+    .ladder-stage { width: 100%; }
+    .ladder-row { display: grid; gap: 0; }
+    .ladder-name { margin: 0 6px; min-height: 40px; padding: 6px 8px; background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-top: 3px solid var(--c); border-radius: 6px; font-weight: 700; font-size: .88rem; cursor: pointer; overflow-wrap: anywhere; }
+    .ladder-name:hover { background: var(--panel-2); }
+    .ladder-name.is-done { color: var(--dim); }
+    .ladder-end { margin: 0 6px; min-height: 40px; padding: 6px 8px; display: flex; align-items: center; justify-content: center; text-align: center; background: var(--well); border: 1px dashed var(--rule-hi); border-radius: 6px; font-weight: 700; font-size: .88rem; color: var(--faint); overflow-wrap: anywhere; }
+    .ladder-end.is-open { border-style: solid; border-color: var(--c); color: var(--text); background: var(--panel); }
+    .ladder-svg-wrap { width: 100%; }
+    .ladder-svg { display: block; width: 100%; height: auto; }
+    .ladder-rail, .ladder-rung { stroke: var(--rule-hi); stroke-width: 3; stroke-linecap: round; }
+    .ladder-path { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 600px) { .ladder-setup { grid-template-columns: 1fr; } .ladder-name, .ladder-end { margin: 0 2px; font-size: .78rem; padding: 6px 3px; } }
     @media (max-width: 1000px) {
       .top-header { grid-template-columns: 1fr auto; }
       .week { grid-column: 1 / -1; order: 3; }
@@ -256,6 +278,7 @@
     <div class="sub-tools">
       <button class="btn-sub-tool active" id="btnTabChars" onclick="switchView('CHARS')">캐릭터</button>
       <button class="btn-sub-tool" id="btnTabSchedule" onclick="switchView('SCHEDULE')">남은 레이드</button>
+      <button class="btn-sub-tool" id="btnTabLadder" onclick="switchView('LADDER')">사다리</button>
       <button class="btn-add-char-orange" onclick="openAddCharacterModal()" data-live-only disabled>+ 캐릭터 추가</button>
     </div>
   </div>
@@ -294,6 +317,26 @@
   <div id="scheduleView" style="display: none;">
     <div id="scheduleListContainer"></div>
   </div>
+
+  <section id="ladderView" style="display: none;" aria-label="사다리 타기">
+    <div class="ladder-setup">
+      <label>참가자 <small>(줄바꿈이나 쉼표로 구분, 2~8명)</small>
+        <textarea id="ladderPlayers" rows="5" placeholder="아리&#10;델리&#10;하루"></textarea>
+      </label>
+      <label>결과 <small>(비워 두면 1, 2, 3… 순서)</small>
+        <textarea id="ladderResults" rows="5" placeholder="딜러&#10;서포터&#10;탈락"></textarea>
+      </label>
+      <div class="ladder-actions">
+        <button type="button" class="btn-add-char-orange" id="ladderBuild">사다리 만들기</button>
+        <div id="ladderMessage" class="ladder-message" role="status"></div>
+      </div>
+    </div>
+    <div class="ladder-tools" id="ladderTools" hidden>
+      <button type="button" class="btn-sub-tool active" id="ladderRevealAll">전체 결과 보기</button>
+      <button type="button" class="btn-sub-tool" id="ladderReset">길 지우기</button>
+    </div>
+    <div class="ladder-stage" id="ladderStage"></div>
+  </section>
 
   <div class="modal fade" id="addCharacterModal" tabindex="-1">
     <div class="modal-dialog">

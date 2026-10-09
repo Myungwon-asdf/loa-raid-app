@@ -1,3 +1,4 @@
+import { initLadder } from './ladder-ui.js';
 import { DATABASE_URL, ANON_KEY } from './config.js';
 import { createPartyReader, matchCharacters, matchRaidGroup, similarity } from './party-ocr.js';
 import { escapeHtml as h, characterFromRow, raidGroups, progress, formatSyncedAt } from './lib/domain.js';
@@ -98,7 +99,7 @@ async function mutate(key, work, success = '저장되었습니다.') {
 
 function render() {
   renderOwnerTabs(); renderStats();
-  if (view === 'CHARS') renderDashboard(); else renderScheduleView();
+  if (view === 'CHARS') renderDashboard(); else if (view === 'SCHEDULE') renderScheduleView();
   if (raidModal) renderRaidManageTable();
   document.querySelectorAll('[data-live-only]').forEach(button => { button.disabled = !editable() || batchRunning || pending.size > 0; });
   $('submitCharacter').disabled = !editable() || pending.has('add') || !previewName || previewName !== $('newCharName').value.trim();
@@ -166,7 +167,8 @@ function renderScheduleView() {
 }
 function switchView(next) {
   view = next;
-  $('btnTabChars').classList.toggle('active',view === 'CHARS'); $('btnTabSchedule').classList.toggle('active',view === 'SCHEDULE');
+  $('btnTabChars').classList.toggle('active',view === 'CHARS'); $('btnTabSchedule').classList.toggle('active',view === 'SCHEDULE'); $('btnTabLadder').classList.toggle('active',view === 'LADDER');
+  $('ladderView').style.display = view === 'LADDER' ? 'block' : 'none'; $('filterBarView').style.display = view === 'LADDER' ? 'none' : '';
   $('characterGrid').style.display = view === 'CHARS' ? 'flex' : 'none'; $('scheduleView').style.display = view === 'SCHEDULE' ? 'block' : 'none'; render();
 }
 function filterByOwner(next) { owner = next; try { localStorage.setItem('loa-owner',owner); } catch {} render(); }
@@ -290,6 +292,7 @@ setInterval(()=>{if(!document.hidden) scheduleReload();},60000);
 window.addEventListener('pagehide',()=>{if(channel) void db.removeChannel(channel);channel=null;});
 window.addEventListener('pageshow',()=>subscribeRealtime());
 // ---- 자동 클리어 감지 연동 (clear-detector.js가 'loa:dungeon-clear' 이벤트를 발생시킴) ----
+initLadder();
 const partyReader = createPartyReader();
 let autoModal, autoOpen = false, autoBusy = false, autoSeq = 0, autoChecked = new Set(), autoDetected = new Set(), lastAuto = null, undoTimer, autoRaidText = '';
 window.loaWarmOcr = () => { partyReader.warm().catch(() => {}); };
