@@ -69,3 +69,11 @@ test('OCR 전처리 함수가 모두 내보내지고 동작한다', () => {
   const b = binarizeBar({ data, width: W, height: H }, { x: 5, y: 2, w: 30, h: 6 }, 2, 2);
   assert.equal(b.width, (30 + 4) * 2);
 });
+
+test('막대 고르기: 같은 열에 쌓인 막대가 낱개 잡음보다 먼저 뽑힌다', async () => {
+  const { pickBars } = await import('../party-ocr.js');
+  const col = [0, 1, 2, 3].map(i => ({ x: 58, y: 350 + i * 60, w: 162, h: 16, red: 0.45 }));
+  const noise = Array.from({ length: 12 }, (_, i) => ({ x: 400 + i * 37, y: 100, w: 90 + i, h: 12, red: 0.9 }));
+  const picked = pickBars([...noise, ...col], 6);
+  for (const c of col) assert.ok(picked.includes(c));
+});

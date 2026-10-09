@@ -43,12 +43,20 @@ export function similarity(a, b) {
 // ---------- 이름 막대 찾기 ----------
 // 게임 화면의 파티 목록은 어두운 붉은 막대 위에 회색 글씨로 캐릭터명이 적혀 있다.
 // 위치가 사용자 UI 설정마다 달라서 고정 좌표 대신 색으로 막대를 찾는다.
-const isBar = (r, g, b) => r >= 28 && r <= 150 && r - g >= 16 && g <= r * 0.75 && b <= r * 0.92 && r - b >= 4;
+const isDimBar = (r, g, b) => r >= 28 && r <= 150 && r - g >= 16 && g <= r * 0.75 && b <= r * 0.92 && r - b >= 4;
+// 파티 목록처럼 선명한 붉은 막대: 배경의 붉은 기운과 섞이지 않게 훨씬 엄격하게 본다.
+const isBrightBar = (r, g, b) => r > 150 && r <= 235 && g <= r * 0.3 && b <= r * 0.3;
 
 export function findNameBars(img) {
+  const bright = scanBars(img, isBrightBar, 60, 0.4, 6);
+  const dim = scanBars(img, isDimBar, 16, 0.65).filter((d) => !bright.some((b) => Math.abs(b.x - d.x) <= 8 && d.y < b.y + b.h && b.y < d.y + d.h));
+  return [...bright, ...dim];
+}
+
+function scanBars(img, isBar, gapMul, minRed, rowGap = 3) {
   const { data, width: W, height: H } = img;
   const s = W / 1920;
-  const gapTol = Math.max(3, Math.round(16 * s)), maxRun = Math.round(280 * s);
+  const gapTol = Math.max(3, Math.round(gapMul * s)), maxRun = Math.round(280 * s);
   const minFull = Math.round(80 * s), minPartial = Math.round(28 * s); // 체력이 깎인 막대는 붉은 부분만 보인다
   const minH = Math.max(5, Math.round(9 * s)), maxH = Math.round(44 * s);
   const groups = [];
@@ -59,7 +67,7 @@ export function findNameBars(img) {
     const close = () => {
       if (start >= 0) {
         const len = last - start + 1;
-        if (len >= minPartial && len <= maxRun && count / len >= 0.3) runs.push([start, last, count]);
+        if (len >= minPartial && len <= maxRun && count / len >= minRed * 0.5) runs.push([start, last, count]);
       }
       start = -1; count = 0;
     };
@@ -78,11 +86,11 @@ export function findNameBars(img) {
       if (g) { g.lastY = y; g.x0 = Math.min(g.x0, x0); g.x1 = Math.max(g.x1, x1); g.red += cnt; }
       else { const ng = { x0, x1, y0: y, lastY: y, red: cnt }; groups.push(ng); open.push(ng); }
     }
-    open = open.filter((o) => y - o.lastY <= 3); // 글자 때문에 몇 줄 끊겨도 같은 막대로 본다
+    open = open.filter((o) => y - o.lastY <= rowGap); // 글자 때문에 몇 줄 끊겨도 같은 막대로 본다
   }
   let bars = groups
     .map((g) => ({ x: g.x0, y: g.y0, w: g.x1 - g.x0 + 1, h: g.lastY - g.y0 + 1, red: g.red / ((g.x1 - g.x0 + 1) * (g.lastY - g.y0 + 1)) }))
-    .filter((b) => b.h >= minH && b.h <= maxH && b.red >= 0.65); // 이름 막대는 붉은 부분이 충분히 차지한다
+    .filter((b) => b.h >= minH && b.h <= maxH && b.red >= minRed); // 이름 막대는 붉은 부분이 충분히 차지한다
   // 붉은 부분이 짧은 막대는 같은 열에 있는 다른 막대의 폭(없으면 기본 폭)까지 넓혀서 글자가 잘리지 않게 한다
   const fallbackW = Math.round(146 * s);
   bars = bars.map((b) => {
@@ -236,6 +244,12 @@ export const AUCTION_TEXT = '경매시작까지남은시간';
 // 이 값보다 낮으면 전혀 다른 문구(예: 아이템 분해 안내)로 본다. 실제 클리어는 0.88 이상, 분해 창은 0.28이었다.
 export const AUCTION_REJECT = 0.35;
 
+// 파티 목록은 같은 열에 같은 폭의 막대가 여러 개 쌓여 있다. 그런 막대를 먼저, 그다음 붉은 비율 순으로 고른다.
+export function pickBars(bars, max = 10) {
+  const aligned = (b) => bars.filter((o) => o !== b && Math.abs(o.x - b.x) <= 8 && Math.abs(o.w - b.w) <= 12).length;
+  return bars.map((b) => ({ b, a: Math.min(aligned(b), 3) })).sort((p, q) => q.a - p.a || q.b.red - p.b.red).slice(0, max).map((e) => e.b);
+}
+
 export function createPartyReader() {
   // 한글 전용(레이드 제목, 한글 이름)과 한글+영문(영문 이름) 두 작업자를 따로 쓴다.
   // 한글+영문 모델은 영문 이름은 잘 읽지만 한글 제목은 오히려 깨뜨리는 경우가 있어서 결과를 합친다.
@@ -270,7 +284,7 @@ export function createPartyReader() {
     async read(frame, { maxBars = 10 } = {}) {
       const [wk, wke] = await Promise.all([worker('kor'), worker('kor+eng')]);
       const img = frame.getContext('2d').getImageData(0, 0, frame.width, frame.height);
-      const bars = sortBars(findNameBars(img).sort((a, b) => b.red - a.red).slice(0, maxBars));
+      const bars = sortBars(pickBars(findNameBars(img), maxBars));
       const names = [];
       for (const bar of bars) {
         const bin = binarizeBar(img, bar);
