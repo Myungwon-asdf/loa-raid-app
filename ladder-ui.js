@@ -1,6 +1,6 @@
 import { makeRungs, tracePath, buildSetup } from './lib/ladder.js';
 
-const ROWS = 12, COL_W = 96, ROW_H = 30, TOP = 8, BOT = 8;
+const ROWS = 12, COL_W = 104, ROW_H = 30, TOP = 10, BOT = 10;
 const COLORS = ['#dba84a', '#52bfa3', '#e27a69', '#7fa6f0', '#c58be0', '#e6d36a', '#68c7d9', '#f0969e'];
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
@@ -12,8 +12,9 @@ let state = null; // {players, results, rungs, revealed:Set}
 
 export function initLadder() {
   $('ladderBuild').addEventListener('click', build);
-  $('ladderRevealAll').addEventListener('click', () => { if (state) state.players.forEach((_, i) => reveal(i, false)); });
+  $('ladderRevealAll').addEventListener('click', () => { if (!state) return; $('ladderPaths').classList.add('is-all'); state.players.forEach((_, i) => reveal(i, false)); });
   $('ladderReset').addEventListener('click', () => { if (state) draw(); });
+  $('ladderShuffle').addEventListener('click', build);
 }
 
 function build() {
@@ -38,7 +39,8 @@ function draw() {
   for (const row of [names, ends]) row.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
   state.players.forEach((p, i) => {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'ladder-name'; b.textContent = p; b.dataset.i = i;
+    b.type = 'button'; b.className = 'ladder-name'; b.dataset.i = i;
+    const dot = document.createElement('i'); dot.setAttribute('aria-hidden', 'true'); b.append(dot, document.createTextNode(p));
     b.style.setProperty('--c', COLORS[i % COLORS.length]);
     b.addEventListener('click', () => reveal(i, true));
     names.appendChild(b);
@@ -50,7 +52,10 @@ function draw() {
   svg.style.maxWidth = `${W}px`;
   for (let c = 0; c < n; c++) svg.appendChild(el('line', { x1: x(c), y1: y(0), x2: x(c), y2: y(ROWS), class: 'ladder-rail' }));
   state.rungs.forEach((row, r) => row.forEach((on, g) => {
-    if (on) svg.appendChild(el('line', { x1: x(g), y1: y(r + 0.5), x2: x(g + 1), y2: y(r + 0.5), class: 'ladder-rung' }));
+    if (on) {
+      svg.appendChild(el('line', { x1: x(g), y1: y(r + 0.5), x2: x(g + 1), y2: y(r + 0.5), class: 'ladder-rung' }));
+      for (const c of [g, g + 1]) svg.appendChild(el('circle', { cx: x(c), cy: y(r + 0.5), r: 3.5, class: 'ladder-node' }));
+    }
   }));
   const paths = el('g'); paths.id = 'ladderPaths'; svg.appendChild(paths);
   const wrap = document.createElement('div'); wrap.className = 'ladder-svg-wrap'; wrap.style.maxWidth = `${W}px`;
@@ -65,17 +70,29 @@ function reveal(i, animate) {
   state.revealed.add(i);
   const pts = tracePath(state.rungs, i);
   const color = COLORS[i % COLORS.length];
+  const group = $('ladderPaths');
+  if (animate) group.querySelectorAll('.ladder-path').forEach(p => p.classList.add('is-old'));
   const path = el('path', { d: pts.map((p, k) => `${k ? 'L' : 'M'}${x(p.col)} ${y(p.row)}`).join(' '), class: 'ladder-path', stroke: color });
-  $('ladderPaths').appendChild(path);
+  group.appendChild(path);
   const end = pts.at(-1).col;
   const endEl = document.querySelector(`.ladder-end[data-col="${end}"]`);
-  const done = () => { endEl.textContent = state.results[end]; endEl.style.setProperty('--c', color); endEl.classList.add('is-open'); endEl.title = `${state.players[i]} → ${state.results[end]}`; };
-  document.querySelector(`.ladder-name[data-i="${i}"]`).classList.add('is-done');
+  const nameEl = document.querySelector(`.ladder-name[data-i="${i}"]`);
+  nameEl.classList.add('is-done');
+  const done = () => {
+    endEl.textContent = state.results[end]; endEl.style.setProperty('--c', color);
+    endEl.classList.add('is-open'); endEl.title = `${state.players[i]} → ${state.results[end]}`;
+  };
   if (!animate || reduceMotion()) return done();
   const len = path.getTotalLength();
+  const dot = el('circle', { r: 7, class: 'ladder-dot', fill: color });
+  group.appendChild(dot);
   path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
-  path.getBoundingClientRect();
-  path.style.transition = `stroke-dashoffset ${Math.min(2.4, 0.8 + len / 500)}s linear`;
-  path.style.strokeDashoffset = 0;
-  path.addEventListener('transitionend', done, { once: true });
+  const ms = Math.min(2600, 700 + len * 3.2), t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms), at = len * k;
+    path.style.strokeDashoffset = len - at;
+    const pt = path.getPointAtLength(at); dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y);
+    if (k < 1) requestAnimationFrame(step); else { dot.remove(); done(); }
+  };
+  requestAnimationFrame(step);
 }

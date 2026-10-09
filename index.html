@@ -190,27 +190,37 @@
     .empty-state { text-align: center; padding: 56px 16px; color: var(--dim); }
 
     /* ---- 사다리 ---- */
-    .ladder-setup { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 720px; margin-bottom: 18px; }
-    .ladder-setup label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; font-weight: 600; color: var(--text); }
+    #ladderView { max-width: 760px; }
+    .ladder-setup { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; padding: 16px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+    .ladder-setup label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; font-weight: 700; color: var(--text); margin: 0; }
     .ladder-setup small { color: var(--faint); font-weight: 500; }
-    .ladder-setup textarea { background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: .9rem; resize: vertical; }
+    .ladder-setup textarea { background: var(--well); color: var(--text); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: .9rem; font-weight: 500; resize: vertical; }
     .ladder-setup textarea:focus { border-color: var(--brass); outline: none; }
     .ladder-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .ladder-actions .btn-add-char-orange { margin: 0; background: var(--brass); color: var(--brass-ink); min-height: 38px; }
+    .ladder-actions .btn-add-char-orange:hover { background: #e6b85e; }
     .ladder-message { font-size: .85rem; color: var(--dim); }
     .ladder-message.is-error { color: var(--rust); }
-    .ladder-tools { display: flex; gap: 4px; margin-bottom: 10px; }
-    .ladder-stage { width: 100%; }
-    .ladder-row { display: grid; gap: 0; }
-    .ladder-name { margin: 0 6px; min-height: 40px; padding: 6px 8px; background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-top: 3px solid var(--c); border-radius: 6px; font-weight: 700; font-size: .88rem; cursor: pointer; overflow-wrap: anywhere; }
-    .ladder-name:hover { background: var(--panel-2); }
-    .ladder-name.is-done { color: var(--dim); }
-    .ladder-end { margin: 0 6px; min-height: 40px; padding: 6px 8px; display: flex; align-items: center; justify-content: center; text-align: center; background: var(--well); border: 1px dashed var(--rule-hi); border-radius: 6px; font-weight: 700; font-size: .88rem; color: var(--faint); overflow-wrap: anywhere; }
-    .ladder-end.is-open { border-style: solid; border-color: var(--c); color: var(--text); background: var(--panel); }
-    .ladder-svg-wrap { width: 100%; }
-    .ladder-svg { display: block; width: 100%; height: auto; }
-    .ladder-rail, .ladder-rung { stroke: var(--rule-hi); stroke-width: 3; stroke-linecap: round; }
-    .ladder-path { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-    @media (max-width: 600px) { .ladder-setup { grid-template-columns: 1fr; } .ladder-name, .ladder-end { margin: 0 2px; font-size: .78rem; padding: 6px 3px; } }
+    .ladder-tools { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+    .ladder-stage { margin: 0; padding: 14px 10px 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; width: 100%; }
+    .ladder-row { display: grid; }
+    .ladder-name, .ladder-end { margin: 0 8px; min-height: 42px; padding: 7px 8px; border-radius: 8px; font-weight: 700; font-size: .9rem; overflow-wrap: anywhere; }
+    .ladder-name { display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--panel-2); color: var(--text); border: 1px solid var(--rule-hi); cursor: pointer; transition: transform .12s, border-color .12s; }
+    .ladder-name i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+    .ladder-name:hover { border-color: var(--c); transform: translateY(1px); }
+    .ladder-name.is-done { color: var(--dim); background: transparent; border-style: dashed; }
+    .ladder-end { display: flex; align-items: center; justify-content: center; text-align: center; background: transparent; border: 1px dashed var(--rule-hi); color: var(--faint); }
+    .ladder-end.is-open { border: 1px solid var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 16%, var(--panel)); }
+    .ladder-svg-wrap { width: 100%; margin: 4px auto; }
+    .ladder-svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .ladder-rail { stroke: var(--rule-hi); stroke-width: 2.5; stroke-linecap: round; }
+    .ladder-rung { stroke: var(--rule-hi); stroke-width: 2.5; stroke-linecap: round; }
+    .ladder-node { fill: var(--panel); stroke: var(--rule-hi); stroke-width: 1.5; }
+    .ladder-path { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; transition: opacity .3s; }
+    .is-all .ladder-path { stroke-width: 3.5; opacity: .8; }
+    .ladder-path.is-old { opacity: .35; }
+    .ladder-dot { stroke: var(--panel); stroke-width: 2.5; filter: drop-shadow(0 0 6px currentColor); }
+    @media (max-width: 600px) { .ladder-setup { grid-template-columns: 1fr; } .ladder-stage { padding: 10px 4px; } .ladder-name, .ladder-end { margin: 0 2px; font-size: .74rem; padding: 6px 2px; } .ladder-name { flex-direction: column; gap: 3px; } }
     @media (max-width: 1000px) {
       .top-header { grid-template-columns: 1fr auto; }
       .week { grid-column: 1 / -1; order: 3; }
@@ -334,6 +344,7 @@
     <div class="ladder-tools" id="ladderTools" hidden>
       <button type="button" class="btn-sub-tool active" id="ladderRevealAll">전체 결과 보기</button>
       <button type="button" class="btn-sub-tool" id="ladderReset">길 지우기</button>
+      <button type="button" class="btn-sub-tool" id="ladderShuffle">사다리 다시 만들기</button>
     </div>
     <div class="ladder-stage" id="ladderStage"></div>
   </section>
