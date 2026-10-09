@@ -37,6 +37,8 @@ const ClearDetector = (() => {
   let stream = null, video = null, stopTimer = null, reader = null, latest = null;
   let hits = 0, cooldownUntil = 0, onClear = null, onStatus = () => {}, onTick = () => {};
   let rectOverride = null;          // 수동 지정 시 {x, y, w, h} (영상 픽셀 기준)
+  let best = null, peak = { score: 0, at: 0 }, ticks = 0, frames = 0;  // 진단용
+  const KEEP_MS = 15 * 60 * 1000;
 
   const small = document.createElement('canvas');
   const sctx = small.getContext('2d', { willReadFrequently: true });
@@ -154,6 +156,43 @@ const ClearDetector = (() => {
     } catch { return null; }
   }
 
+  // 진단용: 최근 15분 동안 가장 "클리어 배너 같았던" 프레임을 보관한다. (일치도가 높은 것 우선, 없으면 흰 픽셀이 많은 것)
+  const rankOf = (score, white) => (score >= 0.2 ? 1000 + score : white / 1000);
+  function trackBest(s, score, white) {
+    const now = Date.now();
+    if (now - peak.at > KEEP_MS || score >= peak.score) peak = { score, at: now };
+    const rank = rankOf(score, white);
+    if (best && now - best.at < KEEP_MS && rank <= best.rank) return;
+    const canvas = snapshot(s);
+    if (canvas) best = { canvas, score, white, at: now, rank };
+  }
+
+  // 진단 이미지: 위에 숫자 정보, 아래에 가장 배너 같았던 실제 프레임. 사용자가 저장해서 보내면 원인을 볼 수 있다.
+  function diagnose() {
+    if (!best && !stream) return null;
+    const track = stream && stream.getVideoTracks()[0];
+    const st = track ? track.getSettings() : {};
+    let rect = '-';
+    try { const r = findGameRect(source()); rect = [r.x, r.y, r.w, r.h].map(Math.round).join(','); } catch {}
+    const t = (x) => (x ? new Date(x).toLocaleTimeString('en-GB') : '-');
+    const lines = [
+      `time ${new Date().toISOString()}  visible=${document.visibilityState}`,
+      `sharing=${!!stream}  track=${st.width || '-'}x${st.height || '-'} surface=${st.displaySurface || '-'} fps=${st.frameRate || '-'}`,
+      `video=${video ? video.videoWidth + 'x' + video.videoHeight : '-'} gameRect=${rect} reader=${!!reader} frames=${frames} ticks=${ticks}`,
+      `templates=${templates().length} user=${!!userTemplate()} MATCH=${MATCH} BRIGHT=${BRIGHT}`,
+      `peak score=${peak.score.toFixed(2)}  best frame: score=${best ? best.score.toFixed(2) : '-'} white=${best ? best.white : '-'} at ${t(best && best.at)}`,
+    ];
+    const w = best ? best.canvas.width : 900, hh = lines.length * 22 + 14;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = hh + (best ? best.canvas.height : 0);
+    const g = c.getContext('2d');
+    g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#7CFC00'; g.font = '15px monospace';
+    lines.forEach((l, i) => g.fillText(l, 8, 20 + i * 22));
+    if (best) g.drawImage(best.canvas, 0, hh);
+    return c;
+  }
+
   function tick() {
     const s = source();
     if (!s || (s === video && video.readyState < 2)) return;
@@ -162,7 +201,9 @@ const ClearDetector = (() => {
     const { mask, white } = captureMask(s);
     let score = 0;
     if (white >= MIN_WHITE) for (const t of tpls) score = Math.max(score, iou(mask, t));
-    onTick({ score, white, at: Date.now() });
+    ticks++;
+    trackBest(s, score, white);
+    onTick({ score, white, at: Date.now(), peak: peak.score });
     if (Date.now() < cooldownUntil) return;
     hits = score >= MATCH ? hits + 1 : 0;
     if (hits >= NEED_HITS) {
@@ -196,7 +237,7 @@ const ClearDetector = (() => {
           const { value, done } = await reader.read();
           if (done) break;
           if (latest) latest.close();
-          latest = value;
+          latest = value; frames++;
         }
       })().catch(() => {});
     } catch { reader = null; }
@@ -233,7 +274,7 @@ const ClearDetector = (() => {
   function setGameRect(r) { rectOverride = r; }
 
   return {
-    start, stop, registerTemplate, setGameRect,
+    start, stop, registerTemplate, setGameRect, diagnose,
     hasTemplate: () => templates().length > 0,
     // 개발용: 이미지/canvas에서 템플릿 문자열을 만들거나 일치도를 계산한다.
     _mask: (s) => Array.from(captureMask(s).mask).join(''),

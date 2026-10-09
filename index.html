@@ -392,6 +392,7 @@
     <button class="btn btn-sm btn-outline-warning" id="autoTemplate" title="기본으로 내장된 클리어 화면 모양으로 감지됩니다. 감지가 안 될 때만 클리어 배너가 떠 있는 동안 눌러 추가하세요.">클리어 화면 추가 등록(선택)</button>
     <label class="small d-flex align-items-center gap-1 mb-0" style="color:#cbd5e1;"><input type="checkbox" id="autoFull"> 완전 자동 (확인 없이 바로 체크)</label>
     <button class="btn btn-sm btn-outline-danger" id="autoUndo" hidden>↩ 방금 자동 체크 되돌리기</button>
+    <button class="btn btn-sm btn-outline-secondary" id="autoDiag" title="자동 체크가 안 될 때: 최근 화면 상태를 이미지로 저장합니다. 이 파일을 보내주시면 원인을 확인할 수 있어요.">진단 저장</button>
     <span id="autoClearStatus" class="small" style="color:#a8b5c9;"></span>
     <span id="autoClearBeat" class="small" style="color:#64748b;"></span>
   </div>
@@ -518,12 +519,18 @@
       const statusEl = document.getElementById('autoClearStatus');
       const beatEl = document.getElementById('autoClearBeat');
       const setStatus = (m) => { statusEl.textContent = m; };
-      const onTick = (t) => { beatEl.textContent = '감시 중 ' + new Date(t.at).toLocaleTimeString('ko-KR') + ' · 배너 일치도 ' + t.score.toFixed(2); };
+      const onTick = (t) => { beatEl.textContent = '감시 중 ' + new Date(t.at).toLocaleTimeString('ko-KR') + ' · 배너 일치도 ' + t.score.toFixed(2) + ' (최근 최고 ' + t.peak.toFixed(2) + ')'; };
       document.getElementById('autoStart').onclick = () =>
         ClearDetector.start({
           onStatus: setStatus, onTick,
           onClear: (frame) => window.dispatchEvent(new CustomEvent('loa:dungeon-clear', { detail: { frame } })),
         }).then(() => { if (window.loaWarmOcr) window.loaWarmOcr(); }).catch((e) => setStatus('화면공유 실패: ' + e.message));
+      document.getElementById('autoDiag').onclick = () => {
+        const c = ClearDetector.diagnose();
+        if (!c) { setStatus('먼저 "자동 체크 켜기"로 화면공유를 시작해 주세요.'); return; }
+        c.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'loa-diag.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); });
+        setStatus('진단 파일(loa-diag.png)을 저장했어요.');
+      };
       document.getElementById('autoStop').onclick = () => { ClearDetector.stop(); beatEl.textContent = ''; };
       document.getElementById('autoTemplate').onclick = () => ClearDetector.registerTemplate();
     })();
