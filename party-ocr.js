@@ -44,13 +44,19 @@ export function similarity(a, b) {
 // 게임 화면의 파티 목록은 어두운 붉은 막대 위에 회색 글씨로 캐릭터명이 적혀 있다.
 // 위치가 사용자 UI 설정마다 달라서 고정 좌표 대신 색으로 막대를 찾는다.
 const isDimBar = (r, g, b) => r >= 28 && r <= 150 && r - g >= 16 && g <= r * 0.75 && b <= r * 0.92 && r - b >= 4;
+// 어두운 장면이나 붉은 효과 위에 놓인 짙은 진홍/자홍 막대(죽은 캐릭터 막대 등). 배경의 붉은 기운(채도 낮음)은 걸러낸다.
+const isDeepBar = (r, g, b) => r >= 55 && r <= 150 && r - g >= 40 && g <= r * 0.3 && b <= r * 0.6;
 // 파티 목록처럼 선명한 붉은 막대: 배경의 붉은 기운과 섞이지 않게 훨씬 엄격하게 본다.
 const isBrightBar = (r, g, b) => r > 150 && r <= 235 && g <= r * 0.3 && b <= r * 0.3;
 
 export function findNameBars(img) {
-  const bright = scanBars(img, isBrightBar, 60, 0.4, 6);
-  const dim = scanBars(img, isDimBar, 16, 0.65).filter((d) => !bright.some((b) => Math.abs(b.x - d.x) <= 8 && d.y < b.y + b.h && b.y < d.y + d.h));
-  return [...bright, ...dim];
+  const out = scanBars(img, isBrightBar, 60, 0.4, 6);
+  const overlaps = (d) => out.some((b) => Math.abs(b.x - d.x) <= 8 && d.y < b.y + b.h && b.y < d.y + d.h);
+  // 같은 자리를 이미 찾았으면 넘어간다. (선명한 막대 → 어두운 진홍 막대 → 흐린 막대 순)
+  for (const [pred, gap, red, rows] of [[isDeepBar, 40, 0.4, 6], [isDimBar, 16, 0.65, 3]]) {
+    for (const d of scanBars(img, pred, gap, red, rows)) if (!overlaps(d)) out.push(d);
+  }
+  return out;
 }
 
 function scanBars(img, isBar, gapMul, minRed, rowGap = 3) {
@@ -148,7 +154,7 @@ export function binarizeBar(img, bar, scale = 4, pad = 6) {
     for (let x = 0; x < bar.w; x++) {
       const i = ((bar.y + y) * W + bar.x + x) * 4;
       const r = data[i], gg = data[i + 1], b = data[i + 2];
-      const gray = Math.max(r, gg, b) - Math.min(r, gg, b) < 0.35 * Math.max(r, gg, b, 1); // 금색 숫자는 제외
+      const gray = Math.max(r, gg, b) - Math.min(r, gg, b) < 0.6 * Math.max(r, gg, b, 1); // 금색 숫자는 제외
       const v = gray ? Math.max(0, gg - sm[x]) : 0;
       score[(y + pad) * bw + x + pad] = v;
       if (v > 0) rel.push(v);
@@ -246,7 +252,7 @@ export const AUCTION_REJECT = 0.35;
 
 // 파티 목록은 같은 열에 같은 폭의 막대가 여러 개 쌓여 있다. 그런 막대를 먼저, 그다음 붉은 비율 순으로 고른다.
 export function pickBars(bars, max = 10) {
-  const aligned = (b) => bars.filter((o) => o !== b && Math.abs(o.x - b.x) <= 8 && Math.abs(o.w - b.w) <= 12).length;
+  const aligned = (b) => bars.filter((o) => o !== b && Math.abs(o.x - b.x) <= 8 && Math.abs(o.w - b.w) <= 60).length;
   return bars.map((b) => ({ b, a: Math.min(aligned(b), 3) })).sort((p, q) => q.a - p.a || q.b.red - p.b.red).slice(0, max).map((e) => e.b);
 }
 
