@@ -77,3 +77,11 @@ test('막대 고르기: 같은 열에 쌓인 막대가 낱개 잡음보다 먼�
   const picked = pickBars([...noise, ...col], 6);
   for (const c of col) assert.ok(picked.includes(c));
 });
+
+test('별칭: 구원의 종탑 클리어 화면은 성당 레이드군으로 이어진다', async () => {
+  const { matchAlias } = await import('../party-ocr.js');
+  assert.equal(matchAlias('구원의 종탑 [1단계] 30000', ['벨가르던', '성당 1단계', '성당 3단계']), '성당 3단계');
+  assert.equal(matchAlias('구원의 종탑', ['벨가르던', '성당']), '성당');
+  assert.equal(matchAlias('구원의 종탑', ['벨가르던']), null);
+  assert.equal(matchAlias('종막 : 최후의 날', ['성당']), null);
+});

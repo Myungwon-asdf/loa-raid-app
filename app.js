@@ -1,6 +1,6 @@
 import { initLadder } from './ladder-ui.js';
 import { DATABASE_URL, ANON_KEY } from './config.js';
-import { createPartyReader, matchCharacters, matchRaidGroup, similarity } from './party-ocr.js';
+import { createPartyReader, matchCharacters, matchRaidGroup, matchAlias, similarity } from './party-ocr.js';
 import { escapeHtml as h, characterFromRow, raidGroups, progress, formatSyncedAt } from './lib/domain.js';
 
 const $ = id => document.getElementById(id);
@@ -333,7 +333,7 @@ function learnRaid(text, group) {
 }
 async function analyzeFrame(frame) {
   const { names, raidText } = await partyReader.read(frame);
-  return { names, raidText, matched: matchCharacters(names, characters), raidKey: learnedRaid(raidText) || matchRaidGroup(raidText, raids) };
+  return { names, raidText, matched: matchCharacters(names, characters), raidKey: learnedRaid(raidText) || matchRaidGroup(raidText, raids) || matchAlias(raidText, [...new Set(raids.map(r => r.group))]) };
 }
 function showRecognition(res) {
   autoRaidText = res.raidText || '';
