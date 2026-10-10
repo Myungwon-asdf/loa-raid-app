@@ -224,7 +224,7 @@ export function matchRaidGroup(text, raids, minScore = 0.66) {
 // 게임 안에서 보이는 콘텐츠 이름과 앱에 등록된 레이드군 이름이 다른 경우의 별칭.
 // title: 클리어 화면에 뜨는 이름(한글만), words: 앱 레이드군 이름에 들어 있는 말, prefer: 여러 군이 걸릴 때 우선할 말.
 export const RAID_ALIASES = [
-  { title: '구원의종탑', words: ['성당'], prefer: ['3단계'] },
+  { title: '구원의종탑', words: ['성당'] },
 ];
 const hangulDigits = (s) => String(s ?? '').replace(/[^가-힣0-9]/g, '');
 export function matchAlias(text, groupKeys, aliases = RAID_ALIASES) {
